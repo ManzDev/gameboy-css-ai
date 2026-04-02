@@ -1,0 +1,1571 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GameBoy – Terminator 2</title>
+
+  <!-- LitElement via CDN -->
+  <script type="module">
+    import { LitElement, html, css } from 'https://cdn.jsdelivr.net/gh/lit/dist@3/core/lit-core.min.js';
+
+    class GbSettingsPanel extends LitElement {
+      static properties = {
+        screenHue: { type: Number },
+        screenContrast: { type: Number },
+        scanlines: { type: Boolean },
+        pixelation: { type: Boolean },
+        crtWarp: { type: Boolean },
+        brightness: { type: Number },
+      };
+
+      static styles = css`
+      :host {
+        display: block;
+        font-family: 'Courier New', monospace;
+        background: #1a1a1a;
+        border: 2px solid #444;
+        border-radius: 8px;
+        padding: 16px;
+        color: #c8ffc8;
+        width: 220px;
+        box-shadow: 0 0 24px rgba(0,255,80,0.15), inset 0 0 10px rgba(0,0,0,0.5);
+        user-select: none;
+      }
+      h3 {
+        margin: 0 0 14px 0;
+        font-size: 11px;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        color: #7fff7f;
+        border-bottom: 1px solid #333;
+        padding-bottom: 8px;
+        text-shadow: 0 0 6px #0f0;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+      label {
+        font-size: 10px;
+        letter-spacing: 1px;
+        color: #aaffaa;
+        text-transform: uppercase;
+        flex: 1;
+      }
+      input[type=range] {
+        width: 90px;
+        accent-color: #00ff44;
+        cursor: pointer;
+      }
+      .toggle {
+        width: 36px; height: 18px;
+        background: #333;
+        border-radius: 9px;
+        position: relative;
+        cursor: pointer;
+        transition: background 0.2s;
+        border: 1px solid #555;
+        flex-shrink: 0;
+      }
+      .toggle.on { background: #00cc33; }
+      .toggle::after {
+        content: '';
+        position: absolute;
+        width: 14px; height: 14px;
+        background: #fff;
+        border-radius: 50%;
+        top: 1px; left: 1px;
+        transition: left 0.2s;
+      }
+      .toggle.on::after { left: 19px; }
+      .val {
+        font-size: 9px;
+        color: #00ff44;
+        width: 28px;
+        text-align: right;
+        flex-shrink: 0;
+      }
+      .divider {
+        border: none;
+        border-top: 1px solid #2a2a2a;
+        margin: 10px 0;
+      }
+      .badge {
+        font-size: 8px;
+        color: #444;
+        text-align: center;
+        margin-top: 14px;
+        letter-spacing: 2px;
+      }
+    `;
+
+      constructor() {
+        super();
+        this.screenHue = 0;
+        this.screenContrast = 100;
+        this.brightness = 100;
+        this.scanlines = true;
+        this.pixelation = true;
+        this.crtWarp = true;
+      }
+
+      _emit(detail) {
+        this.dispatchEvent(new CustomEvent('settings-change', { detail, bubbles: true, composed: true }));
+      }
+
+      _range(prop, label, min, max, unit = '%') {
+        return html`
+        <div class="row">
+          <label>${label}</label>
+          <input type="range" min="${min}" max="${max}" .value="${this[prop]}"
+            @input="${e => { this[prop] = +e.target.value; this._emit({ [prop]: this[prop] }); }}" />
+          <span class="val">${this[prop]}${unit}</span>
+        </div>`;
+      }
+
+      _toggle(prop, label) {
+        return html`
+        <div class="row">
+          <label>${label}</label>
+          <div class="toggle ${this[prop] ? 'on' : ''}"
+            @click="${() => { this[prop] = !this[prop]; this._emit({ [prop]: this[prop] }); }}"></div>
+        </div>`;
+      }
+
+      render() {
+        return html`
+        <h3>⚙ Screen Config</h3>
+        ${this._range('brightness', 'Brightness', 40, 160)}
+        ${this._range('screenContrast', 'Contrast', 50, 200)}
+        ${this._range('screenHue', 'Hue Shift', -180, 180, '°')}
+        <hr class="divider">
+        ${this._toggle('scanlines', 'Scanlines')}
+        ${this._toggle('pixelation', 'Pixelation')}
+        ${this._toggle('crtWarp', 'CRT Warp')}
+        <div class="badge">DMG-01 MOD CHIP</div>
+      `;
+      }
+    }
+    customElements.define('gb-settings-panel', GbSettingsPanel);
+  </script>
+
+  <!-- Tone.js for audio synthesis -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --gb-body: #b8b8a8;
+      --gb-dark: #8a8a7a;
+      --gb-darker: #5a5a4a;
+      --gb-screen-bg: #8bac0f;
+      --gb-screen-dark: #0f380f;
+      --gb-btn-a: #8b1a4a;
+      --gb-btn-b: #8b1a4a;
+      --gb-dpad: #2a2a2a;
+      --gb-speaker: #9a9a8a;
+      --gb-text: #3a3a3a;
+      --gb-label: #6a4a8a;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      background: #111;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow-x: hidden;
+    }
+
+    body {
+      background:
+        radial-gradient(ellipse at 20% 50%, #1a0a2a 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 50%, #0a1a1a 0%, transparent 60%),
+        #0d0d0d;
+      min-height: 100vh;
+    }
+
+    /* ─── PAGE LAYOUT ─── */
+    .page {
+      display: flex;
+      align-items: flex-start;
+      gap: 32px;
+      padding: 40px 20px;
+    }
+
+    /* ─── SETTINGS PANEL WRAPPER ─── */
+    .settings-wrapper {
+      position: sticky;
+      top: 40px;
+      margin-top: 120px;
+    }
+
+    .settings-label {
+      font-family: 'Courier New', monospace;
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: #444;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+      text-align: center;
+    }
+
+    /* ─── GAMEBOY SHELL ─── */
+    .gameboy {
+      width: 340px;
+      background: var(--gb-body);
+      border-radius: 10px 10px 40px 10px;
+      padding: 22px 20px 28px;
+      box-shadow:
+        6px 6px 0 var(--gb-darker),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.15),
+        0 20px 60px rgba(0, 0, 0, 0.7);
+      position: relative;
+      filter: var(--gb-filter, none);
+    }
+
+    /* Notched corner bottom-right */
+    .gameboy::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 60px;
+      height: 60px;
+      background: var(--gb-body);
+      border-radius: 0 0 0 0;
+      clip-path: polygon(100% 0, 100% 100%, 0 100%);
+      filter: brightness(0.85);
+    }
+
+    /* Top ridge line */
+    .gb-ridge {
+      height: 4px;
+      background: linear-gradient(to bottom, rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.2), rgba(0, 0, 0, 0.05));
+      border-radius: 2px;
+      margin-bottom: 16px;
+    }
+
+    /* ─── SCREEN BEZEL ─── */
+    .screen-bezel {
+      background: var(--gb-darker);
+      border-radius: 6px 6px 16px 16px;
+      padding: 18px 22px 22px;
+      margin-bottom: 18px;
+      box-shadow:
+        inset 0 2px 6px rgba(0, 0, 0, 0.5),
+        0 2px 0 rgba(255, 255, 255, 0.3);
+      position: relative;
+    }
+
+    /* Battery LED */
+    .battery-led {
+      position: absolute;
+      top: 10px;
+      right: 14px;
+      width: 7px;
+      height: 7px;
+      background: #ff2200;
+      border-radius: 50%;
+      box-shadow: 0 0 6px #ff4400, 0 0 12px #ff220088;
+      animation: ledPulse 2s ease-in-out infinite;
+    }
+
+    @keyframes ledPulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.6;
+      }
+    }
+
+    .screen-label {
+      font-family: 'Courier New', monospace;
+      font-size: 7px;
+      letter-spacing: 4px;
+      color: #aaa;
+      text-transform: uppercase;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+
+    /* ─── SCREEN ─── */
+    .screen-outer {
+      background: #1a1a1a;
+      border-radius: 4px;
+      padding: 8px;
+      box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.8), 0 0 0 2px #111;
+    }
+
+    .screen {
+      width: 100%;
+      aspect-ratio: 10/9;
+      position: relative;
+      overflow: hidden;
+      border-radius: 2px;
+      background: var(--gb-screen-dark);
+      cursor: pointer;
+      image-rendering: pixelated;
+    }
+
+    /* CRT warp via SVG filter */
+    .screen.crt-warp {
+      filter: url(#crt-warp);
+    }
+
+    /* Scanlines overlay */
+    .screen::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(to bottom,
+          transparent 0px, transparent 2px,
+          rgba(0, 0, 0, 0.18) 2px, rgba(0, 0, 0, 0.18) 4px);
+      pointer-events: none;
+      z-index: 10;
+      opacity: 1;
+      transition: opacity 0.3s;
+    }
+
+    .screen.no-scanlines::after {
+      opacity: 0;
+    }
+
+    /* Screen contents canvas */
+    #gameCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      image-rendering: pixelated;
+    }
+
+    /* Screen glare */
+    .screen-glare {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 40%;
+      background: linear-gradient(to bottom, rgba(255, 255, 255, 0.07), transparent);
+      pointer-events: none;
+      z-index: 11;
+      border-radius: 2px 2px 0 0;
+    }
+
+    /* Power-on flash */
+    .screen-flash {
+      position: absolute;
+      inset: 0;
+      background: white;
+      z-index: 20;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.05s;
+    }
+
+    .screen-flash.flash {
+      opacity: 0.7;
+    }
+
+    /* ─── BRAND LABEL ─── */
+    .brand-area {
+      text-align: center;
+      margin-bottom: 18px;
+      position: relative;
+    }
+
+    .brand-nintendo {
+      font-family: 'Arial Narrow', Arial, sans-serif;
+      font-size: 8px;
+      font-weight: 900;
+      letter-spacing: 6px;
+      color: var(--gb-text);
+      text-transform: uppercase;
+      opacity: 0.7;
+    }
+
+    .brand-gameboy {
+      font-family: 'Arial Rounded MT Bold', 'Arial', sans-serif;
+      font-size: 22px;
+      font-weight: 900;
+      font-style: italic;
+      color: var(--gb-label);
+      letter-spacing: 1px;
+      line-height: 1;
+      text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.2);
+    }
+
+    .brand-dot {
+      font-size: 9px;
+      color: var(--gb-label);
+      letter-spacing: 4px;
+      opacity: 0.8;
+      font-style: italic;
+    }
+
+    /* ─── CONTROLS AREA ─── */
+    .controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 4px;
+      margin-bottom: 20px;
+    }
+
+    /* D-PAD */
+    .dpad-wrapper {
+      position: relative;
+    }
+
+    .dpad {
+      width: 84px;
+      height: 84px;
+      position: relative;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-rows: 1fr 1fr 1fr;
+    }
+
+    .dpad-h,
+    .dpad-v {
+      background: var(--gb-dpad);
+      border-radius: 3px;
+      cursor: pointer;
+      position: relative;
+      box-shadow: 0 2px 0 #111, inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      transition: filter 0.05s, transform 0.05s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .dpad-h {
+      grid-column: 1 / 4;
+      grid-row: 2;
+      height: 28px;
+      border-radius: 3px;
+    }
+
+    .dpad-v {
+      grid-column: 2;
+      grid-row: 1 / 4;
+      width: 28px;
+    }
+
+    /* Cross center circle */
+    .dpad-center {
+      grid-column: 2;
+      grid-row: 2;
+      background: var(--gb-dpad);
+      border-radius: 50%;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .dpad-btn {
+      position: absolute;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .dpad-btn:active,
+    .dpad-btn.pressed {
+      filter: brightness(0.7);
+      transform: scale(0.95);
+    }
+
+    /* Individual directional zones */
+    .dpad-up {
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 28px;
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    .dpad-down {
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 28px;
+    }
+
+    .dpad-left {
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 28px;
+    }
+
+    .dpad-right {
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 28px;
+    }
+
+    /* D-pad arrows */
+    .dpad-h::before,
+    .dpad-h::after,
+    .dpad-v::before,
+    .dpad-v::after {
+      content: '';
+      position: absolute;
+      border: 5px solid transparent;
+    }
+
+    .dpad-h::before {
+      left: 4px;
+      top: 50%;
+      transform: translateY(-50%);
+      border-right-color: #555;
+    }
+
+    .dpad-h::after {
+      right: 4px;
+      top: 50%;
+      transform: translateY(-50%);
+      border-left-color: #555;
+    }
+
+    .dpad-v::before {
+      top: 4px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-bottom-color: #555;
+    }
+
+    .dpad-v::after {
+      bottom: 4px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-top-color: #555;
+    }
+
+    /* ─── A/B BUTTONS ─── */
+    .ab-buttons {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      transform: rotate(-20deg);
+      margin-right: 6px;
+    }
+
+    .gb-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: var(--gb-btn-a);
+      background: radial-gradient(circle at 35% 30%, #c0305a, #7a1440);
+      border: none;
+      cursor: pointer;
+      position: relative;
+      box-shadow:
+        0 4px 0 #4a0822,
+        0 5px 8px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+      transition: transform 0.05s, box-shadow 0.05s;
+      -webkit-tap-highlight-color: transparent;
+      outline: none;
+    }
+
+    .gb-btn:active,
+    .gb-btn.pressed {
+      transform: translateY(3px);
+      box-shadow: 0 1px 0 #4a0822, 0 2px 4px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+
+    .gb-btn-label {
+      display: block;
+      font-family: 'Courier New', monospace;
+      font-size: 9px;
+      font-weight: bold;
+      color: rgba(255, 255, 255, 0.7);
+      text-align: center;
+      margin-top: 3px;
+      letter-spacing: 1px;
+    }
+
+    .btn-b {
+      margin-top: 20px;
+    }
+
+    /* ─── SELECT/START ─── */
+    .select-start {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      margin-bottom: 18px;
+      transform: rotate(-5deg);
+    }
+
+    .ss-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .ss-pill {
+      width: 36px;
+      height: 10px;
+      background: radial-gradient(ellipse at 50% 30%, #6a6a5a, #3a3a2a);
+      border-radius: 5px;
+      box-shadow: 0 2px 0 #1a1a0a, inset 0 1px 0 rgba(255, 255, 255, 0.15);
+      transition: filter 0.05s, transform 0.05s;
+    }
+
+    .ss-btn:active .ss-pill,
+    .ss-btn.pressed .ss-pill {
+      filter: brightness(0.7);
+      transform: translateY(1px);
+    }
+
+    .ss-label {
+      font-family: 'Courier New', monospace;
+      font-size: 7px;
+      color: var(--gb-text);
+      letter-spacing: 1px;
+      opacity: 0.7;
+      text-transform: uppercase;
+    }
+
+    /* ─── SPEAKER ─── */
+    .speaker {
+      display: flex;
+      gap: 4px;
+      align-items: flex-end;
+      justify-content: flex-end;
+      padding: 0 6px;
+      margin-top: 4px;
+    }
+
+    .speaker-hole {
+      width: 3px;
+      border-radius: 2px;
+      background: var(--gb-darker);
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+    }
+
+    .speaker-hole:nth-child(1) {
+      height: 14px;
+    }
+
+    .speaker-hole:nth-child(2) {
+      height: 20px;
+    }
+
+    .speaker-hole:nth-child(3) {
+      height: 26px;
+    }
+
+    .speaker-hole:nth-child(4) {
+      height: 20px;
+    }
+
+    .speaker-hole:nth-child(5) {
+      height: 14px;
+    }
+
+    .speaker-hole:nth-child(6) {
+      height: 10px;
+    }
+
+    /* ─── POWER SWITCH ─── */
+    .power-area {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding: 0 4px;
+    }
+
+    .power-switch-track {
+      width: 44px;
+      height: 14px;
+      background: #3a3a2a;
+      border-radius: 7px;
+      position: relative;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+      cursor: pointer;
+    }
+
+    .power-switch-knob {
+      position: absolute;
+      width: 20px;
+      height: 12px;
+      background: linear-gradient(to bottom, #ccc, #999);
+      border-radius: 6px;
+      top: 1px;
+      transition: left 0.2s;
+      left: 1px;
+      box-shadow: 1px 0 2px rgba(0, 0, 0, 0.3);
+    }
+
+    .power-switch-knob.on {
+      left: 23px;
+    }
+
+    .power-label {
+      font-family: 'Courier New', monospace;
+      font-size: 7px;
+      color: var(--gb-text);
+      opacity: 0.6;
+      letter-spacing: 3px;
+    }
+
+    /* ─── VOLUME WHEEL ─── */
+    .volume-area {
+      position: absolute;
+      top: 42%;
+      right: -14px;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .volume-wheel {
+      width: 14px;
+      height: 44px;
+      background: linear-gradient(to right, #888, #ccc, #888);
+      border-radius: 7px;
+      position: relative;
+      cursor: ns-resize;
+      box-shadow: 2px 0 4px rgba(0, 0, 0, 0.4);
+      overflow: hidden;
+    }
+
+    .volume-notch {
+      position: absolute;
+      left: 2px;
+      right: 2px;
+      height: 2px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 1px;
+    }
+
+    .volume-label {
+      font-family: 'Courier New', monospace;
+      font-size: 6px;
+      color: var(--gb-text);
+      opacity: 0.5;
+      letter-spacing: 1px;
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+    }
+
+    /* ─── HEADPHONE JACK ─── */
+    .jack-area {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .jack-hole {
+      width: 8px;
+      height: 8px;
+      background: #1a1a1a;
+      border-radius: 50%;
+      box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.8);
+      border: 1px solid #333;
+    }
+
+    .jack-label {
+      font-family: 'Courier New', monospace;
+      font-size: 6px;
+      color: var(--gb-text);
+      opacity: 0.4;
+      letter-spacing: 2px;
+    }
+
+    /* ─── AUDIO STATUS ─── */
+    .audio-status {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-60px);
+      background: rgba(0, 0, 0, 0.85);
+      border: 1px solid #333;
+      border-radius: 20px;
+      padding: 8px 18px;
+      font-family: 'Courier New', monospace;
+      font-size: 10px;
+      letter-spacing: 2px;
+      color: #00ff44;
+      backdrop-filter: blur(10px);
+      transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      z-index: 100;
+      white-space: nowrap;
+    }
+
+    .audio-status.show {
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ─── SVG FILTER ─── */
+    svg.filters {
+      position: absolute;
+      width: 0;
+      height: 0;
+    }
+
+    /* CRT phosphor glow */
+    .screen {
+      transition: filter 0.3s;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Hidden SVG filters -->
+  <svg class="filters" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <filter id="crt-warp" x="-5%" y="-5%" width="110%" height="110%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.0" numOctaves="1" result="noise" />
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="0" xChannelSelector="R" yChannelSelector="G"
+          result="disp" />
+        <!-- Barrel distortion via displacement -->
+        <feComposite in="disp" operator="in" />
+      </filter>
+      <filter id="crt-glow">
+        <feGaussianBlur stdDeviation="1.5" result="blur" />
+        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+      </filter>
+    </defs>
+  </svg>
+
+  <div class="audio-status" id="audioStatus">♫ T2 THEME LOADING…</div>
+
+  <div class="page">
+
+    <!-- Settings panel (LitElement Web Component) -->
+    <div class="settings-wrapper">
+      <div class="settings-label">Display Options</div>
+      <gb-settings-panel id="settingsPanel"></gb-settings-panel>
+    </div>
+
+    <!-- GameBoy shell -->
+    <div class="gameboy" id="gameBoy">
+
+      <!-- Volume wheel -->
+      <div class="volume-area">
+        <span class="volume-label">VOL</span>
+        <div class="volume-wheel" id="volumeWheel">
+          <div class="volume-notch" style="top:6px"></div>
+          <div class="volume-notch" style="top:13px"></div>
+          <div class="volume-notch" style="top:20px"></div>
+          <div class="volume-notch" style="top:27px"></div>
+          <div class="volume-notch" style="top:34px"></div>
+        </div>
+      </div>
+
+      <!-- Power switch -->
+      <div class="power-area">
+        <div class="power-switch-track" id="powerSwitch">
+          <div class="power-switch-knob" id="powerKnob"></div>
+        </div>
+        <span class="power-label">OFF ◆ ON</span>
+        <div class="battery-led" id="batteryLed" style="position:relative;top:0;right:0;margin-left:auto"></div>
+      </div>
+
+      <div class="gb-ridge"></div>
+
+      <!-- Screen bezel -->
+      <div class="screen-bezel">
+        <div class="screen-label">DOT MATRIX WITH STEREO SOUND</div>
+        <div class="screen-outer">
+          <div class="screen crt-warp" id="screen">
+            <canvas id="gameCanvas" width="160" height="144"></canvas>
+            <div class="screen-glare"></div>
+            <div class="screen-flash" id="screenFlash"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Brand -->
+      <div class="brand-area">
+        <div class="brand-nintendo">Nintendo</div>
+        <div class="brand-gameboy">Game Boy</div>
+        <div class="brand-dot">™</div>
+      </div>
+
+      <!-- Main controls -->
+      <div class="controls">
+
+        <!-- D-Pad -->
+        <div class="dpad-wrapper">
+          <div class="dpad">
+            <div class="dpad-v" id="dpad-v" data-dir="up"></div>
+            <div class="dpad-h" id="dpad-h" data-dir="left"></div>
+            <div class="dpad-center"></div>
+          </div>
+        </div>
+
+        <!-- A/B Buttons -->
+        <div class="ab-buttons">
+          <div>
+            <button class="gb-btn" id="btnA" data-btn="A">A</button>
+            <span class="gb-btn-label">A</span>
+          </div>
+          <div class="btn-b">
+            <button class="gb-btn" id="btnB" data-btn="B">B</button>
+            <span class="gb-btn-label">B</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Select / Start -->
+      <div class="select-start">
+        <div class="ss-btn" id="btnSelect">
+          <div class="ss-pill"></div>
+          <span class="ss-label">Select</span>
+        </div>
+        <div class="ss-btn" id="btnStart">
+          <div class="ss-pill"></div>
+          <span class="ss-label">Start</span>
+        </div>
+      </div>
+
+      <!-- Speaker grille -->
+      <div style="display:flex;justify-content:flex-end">
+        <div class="speaker">
+          <div class="speaker-hole"></div>
+          <div class="speaker-hole"></div>
+          <div class="speaker-hole"></div>
+          <div class="speaker-hole"></div>
+          <div class="speaker-hole"></div>
+          <div class="speaker-hole"></div>
+        </div>
+      </div>
+
+      <!-- Headphone jack -->
+      <div class="jack-area">
+        <div class="jack-hole"></div>
+        <span class="jack-label">PHONES</span>
+      </div>
+
+    </div><!-- .gameboy -->
+
+  </div><!-- .page -->
+
+  <script>
+    // ════════════════════════════════════════════════════════
+    //  TERMINATOR 2: JUDGMENT DAY — GAMEBOY SCENE RENDERER
+    // ════════════════════════════════════════════════════════
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = 160, H = 144;
+
+    // GB color palette (4 shades)
+    const PAL = ['#9bbc0f', '#8bac0f', '#306230', '#0f380f'];
+    // screen filter applied via CSS later
+
+    let isPowered = false;
+    let frame = 0;
+    let animId = null;
+    let settings = {
+      scanlines: true,
+      pixelation: true,
+      crtWarp: true,
+      brightness: 100,
+      screenContrast: 100,
+      screenHue: 0,
+    };
+
+    // ── PIXEL FONT (5×5 bitmapped chars) ──────────────────
+    const FONT = {
+      ' ': [0, 0, 0, 0, 0],
+      'A': [14, 17, 31, 17, 17], 'B': [30, 17, 30, 17, 30], 'C': [14, 17, 16, 17, 14],
+      'D': [30, 17, 17, 17, 30], 'E': [31, 16, 30, 16, 31], 'F': [31, 16, 30, 16, 16],
+      'G': [14, 17, 16, 19, 14], 'H': [17, 17, 31, 17, 17], 'I': [31, 4, 4, 4, 31],
+      'J': [1, 1, 1, 17, 14], 'K': [17, 18, 28, 18, 17], 'L': [16, 16, 16, 16, 31],
+      'M': [17, 27, 21, 17, 17], 'N': [17, 25, 21, 19, 17], 'O': [14, 17, 17, 17, 14],
+      'P': [30, 17, 30, 16, 16], 'Q': [14, 17, 17, 19, 15], 'R': [30, 17, 30, 18, 17],
+      'S': [14, 17, 14, 1, 30], 'T': [31, 4, 4, 4, 4], 'U': [17, 17, 17, 17, 14],
+      'V': [17, 17, 17, 10, 4], 'W': [17, 17, 21, 27, 17], 'X': [17, 10, 4, 10, 17],
+      'Y': [17, 10, 4, 4, 4], 'Z': [31, 2, 4, 8, 31],
+      '0': [14, 19, 21, 25, 14], '1': [4, 12, 4, 4, 14], '2': [14, 1, 14, 16, 31],
+      '3': [14, 1, 6, 1, 14], '4': [9, 9, 31, 1, 1], '5': [31, 16, 30, 1, 30],
+      '6': [14, 16, 30, 17, 14], '7': [31, 1, 2, 4, 4], '8': [14, 17, 14, 17, 14],
+      '9': [14, 17, 15, 1, 14],
+      ':': [0, 4, 0, 4, 0], '!': [4, 4, 4, 0, 4], '-': [0, 0, 31, 0, 0],
+      '.': [0, 0, 0, 0, 4], '/': [1, 2, 4, 8, 16],
+      '<': [2, 4, 8, 4, 2], '>': [8, 4, 2, 4, 8],
+    };
+
+    function drawText(txt, x, y, scale = 1, col = PAL[3]) {
+      txt = txt.toUpperCase();
+      let cx = x;
+      for (const ch of txt) {
+        const bmp = FONT[ch] || FONT[' '];
+        ctx.fillStyle = col;
+        for (let row = 0; row < 5; row++) {
+          for (let bit = 4; bit >= 0; bit--) {
+            if (bmp[row] & (1 << bit)) {
+              ctx.fillRect(cx + (4 - bit) * scale, y + row * scale, scale, scale);
+            }
+          }
+        }
+        cx += 6 * scale;
+      }
+    }
+
+    // ── T2 SCENE RENDERING ────────────────────────────────
+
+    function clearScreen(col = PAL[0]) {
+      ctx.fillStyle = col;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // Stars field
+    const stars = Array.from({ length: 30 }, () => ({
+      x: Math.random() * W,
+      y: Math.random() * 40,
+      s: Math.random() < 0.3 ? 2 : 1,
+    }));
+
+    function drawStars() {
+      for (const s of stars) {
+        ctx.fillStyle = (frame + s.x) % 60 < 3 ? PAL[1] : PAL[2];
+        ctx.fillRect(s.x | 0, s.y | 0, s.s, s.s);
+      }
+    }
+
+    // City ruins silhouette
+    function drawCityline() {
+      ctx.fillStyle = PAL[3];
+      const buildings = [
+        { x: 0, w: 18, h: 28 }, { x: 20, w: 12, h: 38 }, { x: 34, w: 16, h: 22 },
+        { x: 52, w: 20, h: 44 }, { x: 74, w: 10, h: 30 }, { x: 86, w: 14, h: 36 },
+        { x: 102, w: 22, h: 28 }, { x: 126, w: 16, h: 40 }, { x: 144, w: 16, h: 24 },
+      ];
+      for (const b of buildings) {
+        ctx.fillRect(b.x, 60 - b.h, b.w, b.h);
+        // Windows
+        ctx.fillStyle = frame % 40 < 20 ? PAL[1] : PAL[2];
+        for (let wy = 62 - b.h; wy < 60 - 4; wy += 6) {
+          for (let wx = b.x + 2; wx < b.x + b.w - 2; wx += 5) {
+            ctx.fillRect(wx, wy, 2, 3);
+          }
+        }
+        ctx.fillStyle = PAL[3];
+      }
+    }
+
+    // Ground / rubble
+    function drawGround() {
+      ctx.fillStyle = PAL[3];
+      ctx.fillRect(0, 60, W, 4);
+      // rubble bumps
+      const rubble = [8, 20, 35, 50, 65, 80, 95, 112, 128, 143];
+      for (const rx of rubble) {
+        ctx.fillRect(rx, 57, 6, 3);
+        ctx.fillRect(rx + 2, 55, 2, 2);
+      }
+    }
+
+    // Skulls on ground
+    const skullPositions = [15, 40, 70, 95, 125];
+    function drawSkulls() {
+      ctx.fillStyle = PAL[2];
+      for (const sx of skullPositions) {
+        // skull body
+        ctx.fillRect(sx, 54, 8, 7);
+        // eyes
+        ctx.fillStyle = PAL[0];
+        ctx.fillRect(sx + 1, 55, 2, 2);
+        ctx.fillRect(sx + 5, 55, 2, 2);
+        // teeth
+        ctx.fillStyle = PAL[0];
+        ctx.fillRect(sx + 1, 59, 2, 2);
+        ctx.fillRect(sx + 5, 59, 2, 2);
+        ctx.fillStyle = PAL[2];
+      }
+    }
+
+    // Terminator endoskeleton (center character)
+    let termiX = 70;
+    let termiWalk = 0;
+
+    function drawTerminator(x, walkPhase) {
+      const blink = frame % 60 < 4;
+      const legOff = Math.sin(walkPhase) * 2 | 0;
+
+      ctx.fillStyle = PAL[2];
+      // torso
+      ctx.fillRect(x, 26, 12, 16);
+      // neck
+      ctx.fillRect(x + 4, 23, 4, 4);
+      // head
+      ctx.fillRect(x + 2, 14, 10, 10);
+      // jaw
+      ctx.fillRect(x + 3, 22, 8, 3);
+      // eye
+      ctx.fillStyle = blink ? PAL[1] : PAL[3];
+      ctx.fillRect(x + 4, 16, 3, 2);
+      ctx.fillStyle = PAL[1];
+      ctx.fillRect(x + 5, 16, 1, 1); // red eye glow
+      // arms
+      ctx.fillStyle = PAL[2];
+      ctx.fillRect(x - 4, 26, 5, 12);
+      ctx.fillRect(x + 13, 26, 5, 12);
+      // gun hand
+      ctx.fillStyle = PAL[3];
+      ctx.fillRect(x - 7, 34, 5, 3);
+      // legs
+      ctx.fillStyle = PAL[2];
+      ctx.fillRect(x + 1, 42 + legOff, 5, 14);
+      ctx.fillRect(x + 7, 42 - legOff, 5, 14);
+      // feet
+      ctx.fillRect(x - 1, 54 + legOff, 7, 3);
+      ctx.fillRect(x + 5, 54 - legOff, 7, 3);
+      // ribs
+      ctx.fillStyle = PAL[1];
+      for (let i = 0; i < 4; i++) ctx.fillRect(x + 2, 28 + i * 3, 8, 1);
+    }
+
+    // HUD
+    function drawHUD() {
+      // top bar
+      ctx.fillStyle = PAL[3];
+      ctx.fillRect(0, 0, W, 10);
+      drawText('LIVES:3', 2, 2, 1, PAL[0]);
+      drawText('SCORE', 80, 2, 1, PAL[0]);
+
+      const sc = String(Math.floor(frame * 7)).padStart(6, '0');
+      drawText(sc, 104, 2, 1, PAL[0]);
+
+      // energy bar
+      ctx.fillStyle = PAL[3];
+      ctx.fillRect(2, H - 10, 60, 6);
+      const energy = Math.min(60, 30 + Math.sin(frame / 30) * 20);
+      ctx.fillStyle = PAL[1];
+      ctx.fillRect(3, H - 9, energy, 4);
+      drawText('EN', 64, H - 9, 1, PAL[2]);
+
+      // bottom border
+      ctx.fillStyle = PAL[3];
+      ctx.fillRect(0, H - 11, W, 1);
+    }
+
+    // Laser shot effect
+    let laserOn = false;
+    let laserTimer = 0;
+
+    function drawLaser() {
+      if (!laserOn) return;
+      ctx.fillStyle = PAL[1];
+      for (let lx = termiX - 6; lx > 0; lx -= 1) {
+        ctx.fillRect(lx, 36, 1 + (lx % 3 === 0 ? 1 : 0), 1);
+      }
+      ctx.fillStyle = PAL[0];
+      ctx.fillRect(0, 35, 6, 3);
+    }
+
+    // Explosion effect
+    let explosions = [];
+    function spawnExplosion(x, y) {
+      explosions.push({ x, y, t: 0, r: 3 });
+    }
+    function drawExplosions() {
+      for (const e of explosions) {
+        const r = e.r + e.t;
+        ctx.fillStyle = e.t < 4 ? PAL[1] : e.t < 7 ? PAL[2] : PAL[3];
+        // simple star burst
+        for (let a = 0; a < 8; a++) {
+          const ang = a * Math.PI / 4 + e.t * 0.2;
+          const ex = e.x + Math.cos(ang) * (r | 0);
+          const ey = e.y + Math.sin(ang) * (r | 0);
+          ctx.fillRect(ex | 0, ey | 0, 2, 2);
+        }
+        e.t++;
+      }
+      explosions = explosions.filter(e => e.t < 12);
+    }
+
+    // ── POWER ON BOOT SEQUENCE ─────────────────────────────
+    let bootPhase = 0;
+    let bootTimer = 0;
+
+    function drawBoot() {
+      clearScreen(PAL[3]);
+      if (bootPhase === 0) {
+        // Nintendo logo scrolls down
+        const y = Math.min(55, bootTimer * 4 - 60);
+        drawText('NINTENDO', (W - 8 * 7) / 2, y, 1, PAL[0]);
+        drawText('PRESENTS', (W - 8 * 7) / 2, y + 10, 1, PAL[1]);
+        if (bootTimer > 40) bootPhase = 1;
+      } else if (bootPhase === 1) {
+        clearScreen(PAL[0]);
+        drawText('TERMINATOR 2', 8, 30, 1, PAL[3]);
+        drawText('JUDGMENT DAY', 10, 42, 1, PAL[3]);
+        drawText('PRESS START', 20, 70, 1, PAL[2]);
+        if (bootTimer > 100) bootPhase = 2;
+      }
+      bootTimer++;
+      return bootPhase < 2;
+    }
+
+    // ── MAIN RENDER LOOP ───────────────────────────────────
+    function render() {
+      if (!isPowered) return;
+
+      if (bootPhase < 2) {
+        if (drawBoot()) {
+          frame++;
+          animId = requestAnimationFrame(render);
+          return;
+        }
+      }
+
+      clearScreen(PAL[0]);
+      drawStars();
+      drawCityline();
+      drawGround();
+      drawSkulls();
+
+      // Terminator walks slowly
+      termiWalk += 0.06;
+      termiX = 60 + Math.sin(frame / 120) * 8;
+
+      drawTerminator(termiX | 0, termiWalk);
+      drawLaser();
+      drawExplosions();
+      drawHUD();
+
+      // Laser & explosion timing
+      if (!laserOn && frame % 90 === 0) {
+        laserOn = true;
+        laserTimer = 0;
+      }
+      if (laserOn) {
+        laserTimer++;
+        if (laserTimer > 12) {
+          laserOn = false;
+          spawnExplosion(4 + Math.random() * 20 | 0, 35);
+        }
+      }
+
+      frame++;
+      animId = requestAnimationFrame(render);
+    }
+
+    // ── POWER ON/OFF ───────────────────────────────────────
+    function powerOn() {
+      isPowered = true;
+      bootPhase = 0;
+      bootTimer = 0;
+      frame = 0;
+      if (animId) cancelAnimationFrame(animId);
+      document.getElementById('screenFlash').classList.add('flash');
+      setTimeout(() => document.getElementById('screenFlash').classList.remove('flash'), 80);
+      render();
+      startMusic();
+    }
+
+    function powerOff() {
+      isPowered = false;
+      if (animId) { cancelAnimationFrame(animId); animId = null; }
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, W, H);
+      stopMusic();
+    }
+
+    // ════════════════════════════════════════════════════════
+    //  TONE.JS — T2 THEME SYNTHESIS
+    // ════════════════════════════════════════════════════════
+    let musicStarted = false;
+    let synth, bassSynth, drumSynth, arpSynth, loop1, loop2, loop3;
+    let toneReady = false;
+
+    // T2 chiptune — approximation of the GB game's main theme
+    const t2Melody = [
+      // Main riff
+      'E4', 'D4', 'E4', 'B3', 'E4', 'D4', 'E4', null,
+      'E4', 'D4', 'E4', 'B3', 'A3', 'B3', null, null,
+      'G4', 'F#4', 'G4', 'D4', 'G4', 'F#4', 'G4', null,
+      'G4', 'F#4', 'G4', 'D4', 'C4', 'D4', null, null,
+      // Bridge
+      'A4', 'A4', 'G4', 'F#4', 'E4', 'D4', 'C4', 'B3',
+      'A3', 'B3', 'C4', 'D4', 'E4', 'F#4', 'G4', 'A4',
+      // Repeat riff
+      'E4', 'D4', 'E4', 'B3', 'E4', 'D4', 'E4', null,
+      'E4', 'D4', 'E4', 'B3', 'A3', null, null, null,
+    ];
+
+    const t2Bass = [
+      'E2', 'E2', 'E2', 'E2', 'E2', 'E2', 'E2', 'E2',
+      'A2', 'A2', 'A2', 'A2', 'A2', 'A2', 'A2', 'A2',
+      'D3', 'D3', 'D3', 'D3', 'D3', 'D3', 'D3', 'D3',
+      'G2', 'G2', 'G2', 'G2', 'G2', 'G2', 'G2', 'G2',
+      'A2', 'A2', 'A2', 'A2', 'A2', 'A2', 'A2', 'A2',
+      'A2', 'A2', 'A2', 'A2', 'A2', 'A2', 'A2', 'A2',
+      'E2', 'E2', 'E2', 'E2', 'E2', 'E2', 'E2', 'E2',
+      'E2', 'E2', 'E2', 'E2', 'E2', 'E2', 'E2', 'E2',
+    ];
+
+    async function initTone() {
+      if (toneReady) return;
+      await Tone.start();
+
+      // Main lead — square wave
+      synth = new Tone.Synth({
+        oscillator: { type: 'square' },
+        envelope: { attack: 0.005, decay: 0.1, sustain: 0.6, release: 0.1 },
+        volume: -8,
+      }).toDestination();
+
+      // Bass — pulse
+      bassSynth = new Tone.Synth({
+        oscillator: { type: 'square' },
+        envelope: { attack: 0.01, decay: 0.1, sustain: 0.4, release: 0.05 },
+        volume: -12,
+      }).toDestination();
+
+      // Arp synth
+      arpSynth = new Tone.Synth({
+        oscillator: { type: 'square' },
+        envelope: { attack: 0.001, decay: 0.08, sustain: 0.2, release: 0.05 },
+        volume: -16,
+      }).toDestination();
+
+      // Drum channel — noise for hi-hat, metal for kick
+      drumSynth = new Tone.NoiseSynth({
+        noise: { type: 'white' },
+        envelope: { attack: 0.001, decay: 0.05, sustain: 0, release: 0.01 },
+        volume: -18,
+      }).toDestination();
+
+      const BPM = 148;
+      Tone.getTransport().bpm.value = BPM;
+
+      let melodyIdx = 0;
+      let bassIdx = 0;
+
+      // Melody loop — 16th notes
+      loop1 = new Tone.Sequence((time, note) => {
+        if (note) synth.triggerAttackRelease(note, '16n', time);
+        melodyIdx = (melodyIdx + 1) % t2Melody.length;
+      }, t2Melody, '16n');
+
+      // Bass loop — 8th notes
+      loop2 = new Tone.Sequence((time, note) => {
+        if (note) bassSynth.triggerAttackRelease(note, '8n', time);
+      }, t2Bass, '8n');
+
+      // Arpeggio loop
+      const arpNotes = ['E3', 'G3', 'B3', 'E4', 'B3', 'G3'];
+      let arpIdx = 0;
+      loop3 = new Tone.Sequence((time) => {
+        arpSynth.triggerAttackRelease(arpNotes[arpIdx % arpNotes.length], '32n', time);
+        arpIdx++;
+      }, [0, 1, 2, 3, 4, 5], '16n');
+
+      // Drum pattern — kick + hihat
+      const kickParts = [0, 4, 8, 12];
+      const hatParts = [2, 6, 10, 14];
+      new Tone.Sequence((time, step) => {
+        if (kickParts.includes(step)) {
+          drumSynth.triggerAttackRelease('16n', time);
+        }
+        if (hatParts.includes(step)) {
+          drumSynth.triggerAttackRelease('32n', time);
+        }
+      }, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], '16n').start(0);
+
+      loop1.start(0);
+      loop2.start(0);
+      loop3.start(0);
+
+      toneReady = true;
+    }
+
+    function startMusic() {
+      initTone().then(() => {
+        Tone.getTransport().start();
+        showAudioStatus('♫ T2 THEME — PLAYING');
+      }).catch(() => {
+        showAudioStatus('⚠ CLICK TO ENABLE AUDIO');
+      });
+    }
+
+    function stopMusic() {
+      if (toneReady) {
+        Tone.getTransport().stop();
+      }
+    }
+
+    function showAudioStatus(msg) {
+      const el = document.getElementById('audioStatus');
+      el.textContent = msg;
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 2800);
+    }
+
+    // ── BUTTON CLICK SOUND ─────────────────────────────────
+    function playClick() {
+      if (!toneReady) return;
+      const clickSynth = new Tone.Synth({
+        oscillator: { type: 'square' },
+        envelope: { attack: 0.001, decay: 0.03, sustain: 0, release: 0.02 },
+        volume: -24,
+      }).toDestination();
+      clickSynth.triggerAttackRelease('C6', '32n');
+      setTimeout(() => clickSynth.dispose(), 200);
+    }
+
+    function playBtnSound(btn) {
+      if (!toneReady) return;
+      const notes = { A: 'G5', B: 'E5', SELECT: 'C5', START: 'A5' };
+      const note = notes[btn] || 'C5';
+      const s = new Tone.Synth({
+        oscillator: { type: 'square' },
+        envelope: { attack: 0.001, decay: 0.06, sustain: 0, release: 0.04 },
+        volume: -20,
+      }).toDestination();
+      s.triggerAttackRelease(note, '32n');
+      setTimeout(() => s.dispose(), 300);
+    }
+
+    // ════════════════════════════════════════════════════════
+    //  DOM INTERACTIONS
+    // ════════════════════════════════════════════════════════
+
+    // Power switch
+    let powered = false;
+    document.getElementById('powerSwitch').addEventListener('click', () => {
+      powered = !powered;
+      document.getElementById('powerKnob').classList.toggle('on', powered);
+      if (powered) powerOn(); else powerOff();
+    });
+
+    // Buttons
+    function addButtonFeedback(el, name) {
+      el.addEventListener('pointerdown', () => {
+        el.classList.add('pressed');
+        if (!powered) { document.body.addEventListener('pointerup', () => el.classList.remove('pressed'), { once: true }); return; }
+        playBtnSound(name);
+        document.body.addEventListener('pointerup', () => el.classList.remove('pressed'), { once: true });
+      });
+    }
+
+    addButtonFeedback(document.getElementById('btnA'), 'A');
+    addButtonFeedback(document.getElementById('btnB'), 'B');
+    addButtonFeedback(document.getElementById('btnSelect'), 'SELECT');
+    addButtonFeedback(document.getElementById('btnStart'), 'START');
+
+    // D-pad
+    ['dpad-v', 'dpad-h'].forEach(id => {
+      const el = document.getElementById(id);
+      el.addEventListener('pointerdown', e => {
+        el.style.filter = 'brightness(0.6)';
+        if (powered) playClick();
+        document.body.addEventListener('pointerup', () => el.style.filter = '', { once: true });
+      });
+    });
+
+    // Keyboard support
+    const keyMap = {
+      'ArrowUp': 'dpad-v', 'ArrowDown': 'dpad-v', 'ArrowLeft': 'dpad-h', 'ArrowRight': 'dpad-h',
+      'z': 'btnA', 'x': 'btnB', 'Enter': 'btnStart', ' ': 'btnSelect',
+    };
+    document.addEventListener('keydown', e => {
+      const id = keyMap[e.key];
+      if (!id) return;
+      const el = document.getElementById(id);
+      if (el && !el.classList.contains('pressed')) {
+        el.classList.add('pressed');
+        if (powered) {
+          if (id === 'btnA' || id === 'btnB') playBtnSound(id === 'btnA' ? 'A' : 'B');
+          else playClick();
+        }
+      }
+    });
+    document.addEventListener('keyup', e => {
+      const id = keyMap[e.key];
+      if (id) document.getElementById(id)?.classList.remove('pressed');
+    });
+
+    // ── SETTINGS PANEL → SCREEN CSS ────────────────────────
+    function applySettings(s) {
+      const screen = document.getElementById('screen');
+      Object.assign(settings, s);
+
+      // CSS filter
+      const filters = [
+        `brightness(${settings.brightness}%)`,
+        `contrast(${settings.screenContrast}%)`,
+        `hue-rotate(${settings.screenHue}deg)`,
+      ].join(' ');
+      screen.style.filter = settings.crtWarp
+        ? `${filters} url(#crt-glow)`
+        : filters;
+
+      screen.classList.toggle('no-scanlines', !settings.scanlines);
+
+      canvas.style.imageRendering = settings.pixelation ? 'pixelated' : 'auto';
+
+      // CRT warp — use scale transform for barrel feel
+      if (settings.crtWarp) {
+        screen.style.transform = 'scale(1.01)';
+        screen.style.borderRadius = '6px';
+      } else {
+        screen.style.transform = '';
+        screen.style.borderRadius = '2px';
+      }
+    }
+
+    document.addEventListener('settings-change', e => applySettings(e.detail));
+
+    // ── VOLUME WHEEL (cosmetic drag) ───────────────────────
+    let volDrag = false;
+    const vw = document.getElementById('volumeWheel');
+    vw.addEventListener('pointerdown', () => { volDrag = true; });
+    document.addEventListener('pointermove', e => {
+      if (!volDrag) return;
+      if (toneReady) {
+        const vol = Math.max(-40, Math.min(0, Tone.getDestination().volume.value - e.movementY * 0.5));
+        Tone.getDestination().volume.value = vol;
+      }
+    });
+    document.addEventListener('pointerup', () => volDrag = false);
+
+    // ── AUTO-POWER ON after short delay ────────────────────
+    setTimeout(() => {
+      powered = true;
+      document.getElementById('powerKnob').classList.add('on');
+      powerOn();
+    }, 400);
+  </script>
+</body>
+
+</html>
