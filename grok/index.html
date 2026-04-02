@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GameBoy • T2: Judgment Day</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.4/howler.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+    :root {
+      --gb-body: #a8a8a8;
+      --gb-accent: #2a2a2a;
+      --screen-brightness: 1.1;
+      --screen-contrast: 1.3;
+      --screen-tint: #9bbc0f;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      background: linear-gradient(135deg, #1a1a1a, #3a3a3a);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      font-family: system-ui, sans-serif;
+    }
+
+    /* Main GameBoy Web Component */
+    .gameboy {
+      width: 420px;
+      height: 620px;
+      background: var(--gb-body);
+      border-radius: 35px 35px 70px 35px;
+      position: relative;
+      box-shadow:
+        0 25px 50px -12px rgb(0 0 0 / 0.4),
+        inset 0 15px 25px rgba(255, 255, 255, 0.6),
+        inset 0 -15px 25px rgba(0, 0, 0, 0.3);
+      border: 18px solid #1f1f1f;
+      border-top-width: 45px;
+      padding: 20px 25px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      color: #1f1f1f;
+    }
+
+    /* Nintendo branding */
+    .header {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      font-family: 'Press Start 2P', system-ui;
+    }
+
+    .nintendo {
+      font-size: 22px;
+      letter-spacing: 2px;
+      font-weight: 700;
+    }
+
+    .gameboy-text {
+      font-size: 11px;
+      letter-spacing: 3px;
+      background: #1f1f1f;
+      color: #a8a8a8;
+      padding: 2px 12px;
+      border-radius: 2px;
+    }
+
+    /* Screen area */
+    .screen-bezel {
+      position: relative;
+      width: 320px;
+      height: 240px;
+      background: #1f1f1f;
+      border: 12px solid #1f1f1f;
+      border-radius: 12px;
+      box-shadow:
+        inset 0 0 30px rgba(0, 0, 0, 0.9),
+        0 0 0 8px #2a2a2a;
+      padding: 10px;
+      margin-bottom: 20px;
+    }
+
+    .screen {
+      width: 100%;
+      height: 100%;
+      background: #0f380f;
+      border: 6px solid #1f1f1f;
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+      box-shadow: inset 0 0 40px #000;
+      image-rendering: pixelated;
+      filter:
+        brightness(var(--screen-brightness)) contrast(var(--screen-contrast)) sepia(0.3) hue-rotate(70deg) saturate(2.5);
+    }
+
+    .screen img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .screen::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(0deg,
+          transparent,
+          transparent 3px,
+          rgba(255, 255, 255, 0.08) 3px,
+          rgba(255, 255, 255, 0.08) 6px);
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    /* D-pad */
+    .dpad-container {
+      position: absolute;
+      bottom: 115px;
+      left: 55px;
+    }
+
+    .dpad {
+      width: 110px;
+      height: 110px;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-rows: 1fr 1fr 1fr;
+      gap: 4px;
+    }
+
+    .dpad div {
+      background: #1f1f1f;
+      border-radius: 4px;
+      box-shadow:
+        4px 4px 0 #0f0f0f,
+        -2px -2px 0 #3a3a3a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #a8a8a8;
+      font-size: 28px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.05s ease;
+    }
+
+    .dpad div:active {
+      transform: scale(0.92);
+      box-shadow: 1px 1px 0 #0f0f0f;
+    }
+
+    .dpad-center {
+      background: transparent !important;
+      box-shadow: none !important;
+      pointer-events: none;
+    }
+
+    /* A / B buttons */
+    .ab-container {
+      position: absolute;
+      bottom: 125px;
+      right: 55px;
+      display: flex;
+      gap: 25px;
+      align-items: flex-end;
+    }
+
+    .ab-button {
+      width: 52px;
+      height: 52px;
+      background: #c80000;
+      border-radius: 50%;
+      box-shadow:
+        0 8px 0 #8b0000,
+        0 0 0 8px #1f1f1f;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-family: 'Press Start 2P', system-ui;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.05s ease;
+    }
+
+    .ab-button:active {
+      transform: translateY(4px);
+      box-shadow: 0 4px 0 #8b0000;
+    }
+
+    .ab-label {
+      font-family: 'Press Start 2P', system-ui;
+      font-size: 10px;
+      position: absolute;
+      top: 62px;
+      color: #1f1f1f;
+    }
+
+    /* Start / Select */
+    .start-select {
+      position: absolute;
+      bottom: 65px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 40px;
+    }
+
+    .start-select button {
+      background: #1f1f1f;
+      color: #a8a8a8;
+      border: none;
+      width: 68px;
+      height: 18px;
+      border-radius: 30px;
+      font-family: 'Press Start 2P', system-ui;
+      font-size: 9px;
+      letter-spacing: 1px;
+      box-shadow:
+        0 4px 0 #0f0f0f,
+        inset 0 2px 2px rgba(255, 255, 255, 0.3);
+      cursor: pointer;
+      transition: all 0.05s ease;
+    }
+
+    .start-select button:active {
+      transform: translateY(2px);
+      box-shadow: 0 2px 0 #0f0f0f;
+    }
+
+    /* Speaker grill */
+    .speaker {
+      position: absolute;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 140px;
+      height: 14px;
+      background: repeating-linear-gradient(90deg,
+          #1f1f1f,
+          #1f1f1f 4px,
+          #2a2a2a 4px,
+          #2a2a2a 12px);
+      border-radius: 4px;
+      box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.4);
+    }
+
+    /* Labels */
+    .label {
+      font-family: 'Press Start 2P', system-ui;
+      font-size: 8px;
+      letter-spacing: 1px;
+      text-align: center;
+      margin-top: 4px;
+    }
+
+    /* Pressed state helper */
+    .pressed {
+      animation: pressAnim 80ms ease;
+    }
+
+    @keyframes pressAnim {
+      0% {
+        transform: scale(1);
+      }
+
+      100% {
+        transform: scale(0.92);
+      }
+    }
+
+    /* Control widget styling */
+    .control-panel {
+      background: #222;
+      border: 6px solid #444;
+      box-shadow: 0 10px 30px -10px rgb(0 0 0 / 0.5);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="flex items-start gap-16">
+
+    <!-- The GameBoy Web Component -->
+    <div id="gameboy" class="gameboy">
+
+      <!-- Header -->
+      <div class="header">
+        <div class="nintendo">Nintendo</div>
+        <div class="gameboy-text">GAME BOY™</div>
+        <div class="text-xs font-bold tracking-[3px]">DOT MATRIX WITH STEREO SOUND</div>
+      </div>
+
+      <!-- Screen -->
+      <div class="screen-bezel">
+        <div id="screen" class="screen">
+          <!-- Static T2: Judgment Day Game Boy scene (replace this image URL with any 160×144 screenshot you prefer) -->
+          <!-- Real T2 GB gameplay example: https://www.mobygames.com/images/shots/l/201379-t2-terminator-2-judgment-day-gameboy-screenshot-each-level-starts-with-a-short-intro-to-give-some-backstory-and-hints.png -->
+          <img id="game-screen-img"
+            src="https://www.mobygames.com/images/shots/l/201379-t2-terminator-2-judgment-day-gameboy-screenshot-each-level-starts-with-a-short-intro-to-give-some-backstory-and-hints.png"
+            alt="Terminator 2: Judgment Day – Game Boy static scene">
+        </div>
+      </div>
+
+      <!-- D-Pad -->
+      <div class="dpad-container">
+        <div class="dpad">
+          <!-- Up -->
+          <div data-dir="up" class="dpad-up">▲</div>
+          <div class="dpad-center"></div>
+          <!-- Empty -->
+          <div></div>
+
+          <!-- Left -->
+          <div data-dir="left" class="dpad-left">◀</div>
+          <!-- Center -->
+          <div class="dpad-center"></div>
+          <!-- Right -->
+          <div data-dir="right" class="dpad-right">▶</div>
+
+          <!-- Empty -->
+          <div></div>
+          <!-- Down -->
+          <div data-dir="down" class="dpad-down">▼</div>
+          <div></div>
+        </div>
+      </div>
+
+      <!-- A / B Buttons -->
+      <div class="ab-container">
+        <div class="relative">
+          <div id="btn-b" class="ab-button">B</div>
+          <div class="ab-label" style="left: 8px;">B</div>
+        </div>
+        <div class="relative">
+          <div id="btn-a" class="ab-button">A</div>
+          <div class="ab-label" style="right: 8px;">A</div>
+        </div>
+      </div>
+
+      <!-- Start / Select -->
+      <div class="start-select">
+        <button id="btn-select">SELECT</button>
+        <button id="btn-start">START</button>
+      </div>
+
+      <!-- Speaker -->
+      <div class="speaker"></div>
+
+      <!-- Bottom label -->
+      <div class="label mt-auto">© 1991 LJN / BITS STUDIOS • T2: JUDGMENT DAY</div>
+    </div>
+
+    <!-- Side Control Widget – implemented as a full Web Component (vanilla Custom Element) -->
+    <controls-panel></controls-panel>
+  </div>
+
+  <script>
+    // Tailwind initialization
+    function initTailwind() {
+      tailwind.config = {
+        content: [],
+        theme: { extend: {} }
+      }
+    }
+
+    // Howler.js – Theme music (public hosted BGM #01 from the original GBS rip)
+    let musicPlayer = null
+    let clickOscillator = null
+
+    function initMusic() {
+      musicPlayer = new Howl({
+        src: ['https://fi.zophar.net/soundfiles/gameboy-gbs/terminator-2-judgement-day/01%20BGM%20%2301.mp3'],
+        loop: true,
+        volume: 0.65,
+        html5: true,
+        onload: () => {
+          console.log('%c🎵 T2: Judgment Day theme loaded!', 'color:#9bbc0f;font-family:monospace')
+          musicPlayer.play()
+        },
+        onloaderror: (id, err) => console.warn('Music load error (autoplay may be blocked)', err)
+      })
+    }
+
+    // Simple Web Audio click sound (retro Game Boy button feel)
+    function playButtonClick() {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)()
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+
+      osc.type = 'square'
+      osc.frequency.setValueAtTime(620, ctx.currentTime)
+      gain.gain.value = 0.4
+      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.08)
+
+      osc.connect(gain).connect(ctx.destination)
+      osc.start()
+      osc.stop(ctx.currentTime + 0.12)
+    }
+
+    // Button press handler (visual + audio)
+    function makeInteractive(buttonEl) {
+      const press = (e) => {
+        e.preventDefault()
+        buttonEl.classList.add('pressed')
+        playButtonClick()
+      }
+      const release = () => {
+        buttonEl.classList.remove('pressed')
+      }
+
+      buttonEl.addEventListener('mousedown', press)
+      buttonEl.addEventListener('touchstart', press, { passive: true })
+      buttonEl.addEventListener('mouseup', release)
+      buttonEl.addEventListener('touchend', release)
+      buttonEl.addEventListener('mouseleave', release)
+    }
+
+    // D-Pad specific handler
+    function setupDpad() {
+      const directions = document.querySelectorAll('.dpad > div[data-dir]')
+      directions.forEach(dir => {
+        dir.addEventListener('mousedown', (e) => {
+          e.preventDefault()
+          dir.classList.add('pressed')
+          playButtonClick()
+          // Optional: you could add directional "feedback" here in the future
+        })
+        dir.addEventListener('mouseup', () => dir.classList.remove('pressed'))
+        dir.addEventListener('mouseleave', () => dir.classList.remove('pressed'))
+        dir.addEventListener('touchstart', (e) => {
+          e.preventDefault()
+          dir.classList.add('pressed')
+          playButtonClick()
+        })
+        dir.addEventListener('touchend', () => dir.classList.remove('pressed'))
+      })
+    }
+
+    // Custom Web Component for the control panel (Lit-like but pure vanilla)
+    class ControlsPanel extends HTMLElement {
+      constructor() {
+        super()
+        this.attachShadow({ mode: 'open' })
+      }
+
+      connectedCallback() {
+        this.shadowRoot.innerHTML = `
+                <style>
+                    :host {
+                        display: block;
+                        width: 280px;
+                    }
+                    .panel {
+                        @apply bg-zinc-900 border-4 border-zinc-700 rounded-3xl p-6 text-white shadow-2xl;
+                        font-family: 'Press Start 2P', system-ui;
+                    }
+                    .slider {
+                        accent-color: #9bbc0f;
+                    }
+                    label {
+                        font-size: 10px;
+                        letter-spacing: 1px;
+                    }
+                </style>
+                <div class="panel">
+                    <h2 class="text-center text-[#9bbc0f] text-xl mb-6 tracking-widest">CONTROL WIDGET</h2>
+
+                    <!-- Brightness -->
+                    <div class="mb-6">
+                        <label class="block mb-1">SCREEN BRIGHTNESS</label>
+                        <input type="range" id="brightness-slider" class="slider w-full" min="0.6" max="1.6" step="0.05" value="1.1">
+                        <div class="flex justify-between text-[10px] text-zinc-400 mt-1">
+                            <span>DARK</span><span>BRIGHT</span>
+                        </div>
+                    </div>
+
+                    <!-- Contrast -->
+                    <div class="mb-6">
+                        <label class="block mb-1">CONTRAST</label>
+                        <input type="range" id="contrast-slider" class="slider w-full" min="0.8" max="1.8" step="0.05" value="1.3">
+                    </div>
+
+                    <!-- Volume -->
+                    <div class="mb-6">
+                        <label class="block mb-1">MUSIC VOLUME</label>
+                        <input type="range" id="volume-slider" class="slider w-full" min="0" max="1" step="0.05" value="0.65">
+                    </div>
+
+                    <!-- Tint intensity (green classic feel) -->
+                    <div class="mb-6">
+                        <label class="block mb-1">RETRO GREEN TINT</label>
+                        <input type="range" id="tint-slider" class="slider w-full" min="0.5" max="3" step="0.1" value="2.5">
+                    </div>
+
+                    <div class="text-center mt-8">
+                        <button id="power-btn"
+                                class="px-8 py-3 bg-red-700 hover:bg-red-600 active:scale-95 transition-all rounded-2xl text-sm font-bold tracking-widest shadow-inner">
+                            POWER OFF / ON
+                        </button>
+                    </div>
+
+                    <p class="text-[9px] text-zinc-500 text-center mt-6">Real-time visual tweaks • Pure HTML/CSS/JS</p>
+                </div>
+                `
+        this.setupListeners()
+      }
+
+      setupListeners() {
+        const gameboy = document.getElementById('gameboy')
+        const screen = document.getElementById('screen')
+
+        // Brightness
+        this.shadowRoot.getElementById('brightness-slider').addEventListener('input', (e) => {
+          document.documentElement.style.setProperty('--screen-brightness', e.target.value)
+        })
+
+        // Contrast
+        this.shadowRoot.getElementById('contrast-slider').addEventListener('input', (e) => {
+          document.documentElement.style.setProperty('--screen-contrast', e.target.value)
+        })
+
+        // Volume
+        this.shadowRoot.getElementById('volume-slider').addEventListener('input', (e) => {
+          if (musicPlayer) musicPlayer.volume(e.target.value)
+        })
+
+        // Tint intensity (affects the hue-rotate + saturate filter)
+        this.shadowRoot.getElementById('tint-slider').addEventListener('input', (e) => {
+          const intensity = e.target.value
+          screen.style.filter = `
+                        brightness(var(--screen-brightness))
+                        contrast(var(--screen-contrast))
+                        sepia(0.3)
+                        hue-rotate(70deg)
+                        saturate(${intensity})
+                    `
+        })
+
+        // Power toggle (fun demo effect)
+        this.shadowRoot.getElementById('power-btn').addEventListener('click', () => {
+          const isOn = gameboy.style.opacity !== '0.3'
+          if (isOn) {
+            gameboy.style.transitionDuration = '400ms'
+            gameboy.style.opacity = '0.3'
+            gameboy.style.filter = 'grayscale(1)'
+            if (musicPlayer) musicPlayer.pause()
+          } else {
+            gameboy.style.opacity = '1'
+            gameboy.style.filter = 'none'
+            if (musicPlayer) musicPlayer.play()
+          }
+        })
+      }
+    }
+
+    // Register the custom element
+    customElements.define('controls-panel', ControlsPanel)
+
+    // Main initialization
+    window.onload = function () {
+      initTailwind()
+      initMusic()
+      setupDpad()
+
+      // Make every button interactive
+      makeInteractive(document.getElementById('btn-a'))
+      makeInteractive(document.getElementById('btn-b'))
+      makeInteractive(document.getElementById('btn-select'))
+      makeInteractive(document.getElementById('btn-start'))
+
+      console.log('%c✅ Nintendo GameBoy T2: Judgment Day replica ready! Music auto-starts. Use side panel to tweak visuals.', 'color:#9bbc0f;font-size:13px')
+      console.log('Built as a single-file web component with vanilla Custom Elements + Howler.js')
+    }
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GameBoy – T2: Judgment Day</title>
+
+  <!-- LitElement & HowlerJS -->
+  <script src="https://cdn.jsdelivr.net/npm/lit@3.1.0/+esm" type="module"></script>
+  <script src="https://cdn.jsdelivr.net/npm/howler@2.2.4/dist/howler.min.js"></script>
+
+  <style>
+    :root {
+      --gb-body: #c0c0c8;
+      --gb-body-dark: #a0a0a8;
+      --gb-screen-bezel: #505058;
+      --gb-screen-bg: #8bac0f;
+      --gb-screen-dark: #306230;
+      --gb-screen-light: #9bbc0f;
+      --gb-dpad: #222;
+      --gb-btn-red: #8b0000;
+      --gb-btn-dark: #333;
+      --gb-text: #303038;
+      --brightness: 1;
+      --contrast: 1;
+      --screen-tint: rgba(0, 0, 0, 0);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: #1a1a2e;
+      font-family: 'Courier New', monospace;
+    }
+
+    .wrapper {
+      display: flex;
+      gap: 40px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    /* ── GameBoy Shell ────────────────────────────── */
+    .gameboy {
+      width: 320px;
+      background: var(--gb-body);
+      border-radius: 12px 12px 60px 12px;
+      padding: 20px 18px 30px;
+      box-shadow:
+        6px 6px 16px rgba(0, 0, 0, .45),
+        inset 1px 1px 0 rgba(255, 255, 255, .35),
+        inset -2px -2px 6px rgba(0, 0, 0, .15);
+      position: relative;
+      user-select: none;
+    }
+
+    /* Top ridge */
+    .gameboy::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 30px;
+      right: 30px;
+      height: 6px;
+      background: var(--gb-body-dark);
+      border-radius: 0 0 3px 3px;
+    }
+
+    /* ── Bezel & Screen ───────────────────────────── */
+    .bezel {
+      background: var(--gb-screen-bezel);
+      border-radius: 8px 8px 30px 8px;
+      padding: 14px 18px 10px;
+      margin-bottom: 16px;
+      box-shadow: inset 2px 2px 4px rgba(0, 0, 0, .4);
+    }
+
+    .bezel-label {
+      color: #888;
+      font-size: 8px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+      text-align: center;
+    }
+
+    .screen-frame {
+      background: #2a2a30;
+      border-radius: 4px;
+      padding: 4px;
+      position: relative;
+    }
+
+    .power-led {
+      position: absolute;
+      top: 6px;
+      left: 10px;
+      width: 6px;
+      height: 6px;
+      background: #300;
+      border-radius: 50%;
+      box-shadow: none;
+      transition: all .2s;
+    }
+
+    .power-led.on {
+      background: #f22;
+      box-shadow: 0 0 6px #f22, 0 0 12px #a00;
+    }
+
+    canvas.screen {
+      display: block;
+      width: 100%;
+      image-rendering: pixelated;
+      filter:
+        brightness(var(--brightness)) contrast(var(--contrast));
+    }
+
+    .screen-frame::after {
+      content: '';
+      position: absolute;
+      inset: 4px;
+      pointer-events: none;
+      box-shadow: inset 0 0 12px rgba(0, 0, 0, .35);
+      border-radius: 2px;
+      z-index: 1;
+    }
+
+    /* ── Branding ─────────────────────────────────── */
+    .brand {
+      text-align: center;
+      color: var(--gb-text);
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 1px;
+      margin-bottom: 2px;
+    }
+
+    .brand span {
+      font-size: 9px;
+      font-weight: 400;
+    }
+
+    .sub-label {
+      text-align: center;
+      color: #666;
+      font-size: 7px;
+      letter-spacing: 3px;
+      margin-bottom: 14px;
+    }
+
+    /* ── D-Pad ────────────────────────────────────── */
+    .dpad {
+      position: relative;
+      width: 96px;
+      height: 96px;
+      margin: 10px auto 20px;
+    }
+
+    .dpad-center {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 32px;
+      height: 32px;
+      background: var(--gb-dpad);
+      border-radius: 2px;
+      z-index: 2;
+    }
+
+    .dpad-btn {
+      position: absolute;
+      background: var(--gb-dpad);
+      cursor: pointer;
+      border: none;
+      outline: none;
+      transition: filter .1s;
+    }
+
+    .dpad-btn:active,
+    .dpad-btn.active {
+      filter: brightness(1.4);
+    }
+
+    .dpad-up {
+      top: 0;
+      left: 32px;
+      width: 32px;
+      height: 34px;
+      border-radius: 4px 4px 0 0;
+    }
+
+    .dpad-down {
+      bottom: 0;
+      left: 32px;
+      width: 32px;
+      height: 34px;
+      border-radius: 0 0 4px 4px;
+    }
+
+    .dpad-left {
+      top: 32px;
+      left: 0;
+      width: 34px;
+      height: 32px;
+      border-radius: 4px 0 0 4px;
+    }
+
+    .dpad-right {
+      top: 32px;
+      right: 0;
+      width: 34px;
+      height: 32px;
+      border-radius: 0 4px 4px 0;
+    }
+
+    /* ── A / B Buttons ────────────────────────────── */
+    .ab-group {
+      display: flex;
+      justify-content: space-around;
+      margin: 16px 0 8px;
+      transform: rotate(-25deg);
+    }
+
+    .ab-btn-wrap {
+      text-align: center;
+    }
+
+    .ab-btn {
+      width: 38px;
+      height: 38px;
+      background: var(--gb-btn-red);
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow:
+        2px 3px 0 #5a0000,
+        inset 1px 1px 0 rgba(255, 255, 255, .2);
+      transition: box-shadow .1s, transform .1s;
+    }
+
+    .ab-btn:active,
+    .ab-btn.active {
+      box-shadow: 0 0 0 #5a0000, inset 1px 1px 0 rgba(255, 255, 255, .2);
+      transform: translateY(2px);
+    }
+
+    .ab-label {
+      color: var(--gb-text);
+      font-size: 10px;
+      font-weight: 700;
+      margin-top: 4px;
+    }
+
+    /* ── Start / Select ───────────────────────────── */
+    .ss-group {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin: 14px 0 0;
+      transform: rotate(-25deg);
+    }
+
+    .ss-btn-wrap {
+      text-align: center;
+    }
+
+    .ss-btn {
+      width: 36px;
+      height: 12px;
+      background: var(--gb-btn-dark);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: inset 0 -1px 0 rgba(255, 255, 255, .1);
+      transition: filter .1s;
+    }
+
+    .ss-btn:active,
+    .ss-btn.active {
+      filter: brightness(1.5);
+    }
+
+    .ss-label {
+      color: var(--gb-text);
+      font-size: 8px;
+      margin-top: 4px;
+      letter-spacing: 1px;
+    }
+
+    /* ── Speaker Grille ───────────────────────────── */
+    .speaker {
+      position: absolute;
+      bottom: 18px;
+      right: 18px;
+      display: grid;
+      grid-template-columns: repeat(6, 4px);
+      gap: 3px;
+      transform: rotate(-25deg);
+    }
+
+    .speaker span {
+      width: 4px;
+      height: 4px;
+      background: #999;
+      border-radius: 50%;
+      box-shadow: inset 0 1px 1px rgba(0, 0, 0, .3);
+    }
+
+    .speaker span:nth-child(n+13) {
+      visibility: hidden;
+    }
+
+    /* ── Cartridge label ──────────────────────────── */
+    .cartridge-label {
+      background: linear-gradient(135deg, #222, #444);
+      color: #fff;
+      font-size: 8px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 2px;
+      display: inline-block;
+      margin-bottom: 6px;
+      position: relative;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrapper">
+    <div class="gameboy" id="gameboy">
+      <div class="cartridge-label">T2 : Judgment Day</div>
+      <div class="bezel">
+        <div class="bezel-label">● ●</div>
+        <div class="screen-frame">
+          <div class="power-led" id="led"></div>
+          <canvas class="screen" id="screen" width="160" height="144"></canvas>
+        </div>
+      </div>
+      <div class="brand">Nintendo <span>GAME BOY</span><sup>™</sup></div>
+      <div class="sub-label">DOT MATRIX WITH STEREO SOUND</div>
+
+      <!-- D-Pad -->
+      <div class="dpad">
+        <div class="dpad-center"></div>
+        <button class="dpad-btn dpad-up" data-key="up"></button>
+        <button class="dpad-btn dpad-down" data-key="down"></button>
+        <button class="dpad-btn dpad-left" data-key="left"></button>
+        <button class="dpad-btn dpad-right" data-key="right"></button>
+      </div>
+
+      <!-- A / B -->
+      <div class="ab-group">
+        <div class="ab-btn-wrap">
+          <button class="ab-btn" data-key="b"></button>
+          <div class="ab-label">B</div>
+        </div>
+        <div class="ab-btn-wrap">
+          <button class="ab-btn" data-key="a"></button>
+          <div class="ab-label">A</div>
+        </div>
+      </div>
+
+      <!-- Start / Select -->
+      <div class="ss-group">
+        <div class="ss-btn-wrap">
+          <button class="ss-btn" data-key="select"></button>
+          <div class="ss-label">SELECT</div>
+        </div>
+        <div class="ss-btn-wrap">
+          <button class="ss-btn" data-key="start"></button>
+          <div class="ss-label">START</div>
+        </div>
+      </div>
+
+      <!-- Speaker grille -->
+      <div class="speaker" id="speaker"></div>
+    </div>
+  </div>
+
+  <!-- LitElement Control Widget (defined in JS below) -->
+  <t2-settings-widget id="settingsWidget"></t2-settings-widget>
+
+  <script type="module">
+    /* ──────────────────────────────────────────────────────
+       1.  T2 Theme – synthesized via Web Audio API fallback
+       ────────────────────────────────────────────────────── */
+
+    // If you have a real MP3, set T2_THEME_URL to the path and swap the Howler config.
+    const T2_THEME_URL = '';
+
+    let musicHowl = null;
+
+    function initMusic() {
+      if (T2_THEME_URL) {
+        musicHowl = new Howl({
+          src: [T2_THEME_URL],
+          loop: true,
+          volume: 0.6,
+          autoplay: true
+        });
+      } else {
+        // Synthesised T2-esque motif so something plays out-of-the-box
+        playSynthT2Theme();
+      }
+    }
+
+    function playSynthT2Theme() {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const master = ctx.createGain();
+      master.gain.value = 0.18;
+      master.connect(ctx.destination);
+
+      // Iconic T2 bass motif (simplified)
+      const bassNotes = [
+        { f: 65, s: 0, d: 0.55 },
+        { f: 65, s: 0.6, d: 0.3 },
+        { f: 73, s: 1.0, d: 0.45 },
+        { f: 82, s: 1.5, d: 0.35 },
+        { f: 65, s: 1.9, d: 0.5 },
+        { f: 65, s: 2.5, d: 0.3 },
+        { f: 73, s: 2.9, d: 0.5 },
+        { f: 82, s: 3.5, d: 0.35 },
+        { f: 98, s: 3.9, d: 0.5 },
+        { f: 82, s: 4.5, d: 0.3 },
+        { f: 73, s: 4.9, d: 0.6 },
+        { f: 65, s: 5.6, d: 0.4 },
+      ];
+
+      function playLoop() {
+        const t = ctx.currentTime;
+        bassNotes.forEach(n => {
+          const osc = ctx.createOscillator();
+          const g = ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.value = n.f;
+          g.gain.setValueAtTime(0.25, t + n.s);
+          g.gain.exponentialRampToValueAtTime(0.001, t + n.s + n.d);
+          osc.connect(g);
+          g.connect(master);
+          osc.start(t + n.s);
+          osc.stop(t + n.s + n.d + 0.05);
+        });
+      }
+
+      playLoop();
+      // Repeat every 6.2 s
+      setInterval(playLoop, 6200);
+      musicHowl = { volume(v) { master.gain.value = v; }, stop() { } };
+    }
+
+    /* ──────────────────────────────────────────────────────
+       2.  Button click sound (Web Audio API)
+       ────────────────────────────────────────────────────── */
+
+    const clickCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function playClick(freq = 800) {
+      const osc = clickCtx.createOscillator();
+      const g = clickCtx.createGain();
+      osc.type = 'square';
+      osc.frequency.value = freq;
+      g.gain.setValueAtTime(0.12, clickCtx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, clickCtx.currentTime + 0.08);
+      osc.connect(g);
+      g.connect(clickCtx.destination);
+      osc.start();
+      osc.stop(clickCtx.currentTime + 0.09);
+    }
+
+    /* ──────────────────────────────────────────────────────
+       3.  Pixel-art T2: Judgment Day scene on canvas
+       ────────────────────────────────────────────────────── */
+
+    const canvas = document.getElementById('screen');
+    const ctx = canvas.getContext('2d');
+
+    const PALETTE = {
+      bg: '#8bac0f',
+      light: '#9bbc0f',
+      mid: '#306230',
+      dark: '#0f380f',
+      shadow: '#0a200a',
+    };
+
+    function drawScene() {
+      // Sky / background
+      ctx.fillStyle = PALETTE.bg;
+      ctx.fillRect(0, 0, 160, 144);
+
+      // Horizon line
+      ctx.fillStyle = PALETTE.light;
+      ctx.fillRect(0, 108, 160, 2);
+
+      // Ground
+      ctx.fillStyle = PALETTE.mid;
+      ctx.fillRect(0, 110, 160, 34);
+
+      // Grid lines on ground (perspective)
+      ctx.fillStyle = PALETTE.dark;
+      for (let y = 114; y < 144; y += 4) {
+        const alpha = (y - 114) / 34;
+        ctx.fillStyle = `rgba(15,56,15,${0.3 + alpha * 0.5})`;
+        ctx.fillRect(0, y, 160, 1);
+      }
+
+      // Distant city skyline
+      ctx.fillStyle = PALETTE.mid;
+      const buildings = [4, 6, 8, 5, 7, 9, 6, 8, 5, 7, 10, 6, 4, 8, 6, 7, 5, 9, 6, 8];
+      buildings.forEach((h, i) => {
+        const x = i * 8;
+        ctx.fillRect(x, 110 - h, 6, h);
+      });
+
+      // T2 TERMINATOR title text
+      ctx.fillStyle = PALETTE.dark;
+      ctx.font = 'bold 10px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('T 2', 80, 18);
+      ctx.font = '5px monospace';
+      ctx.fillText('JUDGMENT DAY', 80, 28);
+
+      // Terminator pixel character (front view)
+      drawTerminator(72, 62);
+
+      // HUD bar at bottom
+      ctx.fillStyle = PALETTE.dark;
+      ctx.fillRect(0, 132, 160, 12);
+      ctx.fillStyle = PALETTE.light;
+      ctx.font = '5px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('LIFE', 4, 139);
+      // life bar
+      ctx.fillStyle = PALETTE.mid;
+      ctx.fillRect(20, 135, 50, 4);
+      ctx.fillStyle = PALETTE.light;
+      ctx.fillRect(20, 135, 38, 4);
+      ctx.fillText('ARMS', 78, 139);
+      ctx.fillStyle = PALETTE.mid;
+      ctx.fillRect(96, 135, 50, 4);
+      ctx.fillStyle = PALETTE.light;
+      ctx.fillRect(96, 135, 44, 4);
+
+      // Score
+      ctx.fillStyle = PALETTE.dark;
+      ctx.font = '5px monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText('004820', 156, 10);
+
+      // Scanline overlay
+      ctx.fillStyle = 'rgba(0,0,0,0.04)';
+      for (let y = 0; y < 144; y += 2) {
+        ctx.fillRect(0, y, 160, 1);
+      }
+    }
+
+    function drawTerminator(x, y) {
+      // Head
+      ctx.fillStyle = PALETTE.dark;
+      ctx.fillRect(x + 5, y, 6, 6);
+      // Eyes (red visor)
+      ctx.fillStyle = PALETTE.bg;
+      ctx.fillRect(x + 6, y + 2, 1, 1);
+      ctx.fillRect(x + 9, y + 2, 1, 1);
+
+      // Torso
+      ctx.fillStyle = PALETTE.dark;
+      ctx.fillRect(x + 2, y + 6, 12, 10);
+
+      // Jacket detail
+      ctx.fillStyle = PALETTE.mid;
+      ctx.fillRect(x + 4, y + 7, 8, 1);
+
+      // Arms
+      ctx.fillStyle = PALETTE.dark;
+      ctx.fillRect(x, y + 7, 3, 8);
+      ctx.fillRect(x + 13, y + 7, 3, 8);
+
+      // Shotgun
+      ctx.fillStyle = PALETTE.mid;
+      ctx.fillRect(x + 13, y + 5, 1, 10);
+      ctx.fillStyle = PALETTE.dark;
+      ctx.fillRect(x + 13, y + 3, 1, 3);
+
+      // Legs
+      ctx.fillStyle = PALETTE.dark;
+      ctx.fillRect(x + 3, y + 16, 4, 8);
+      ctx.fillRect(x + 9, y + 16, 4, 8);
+
+      // Boots
+      ctx.fillStyle = PALETTE.mid;
+      ctx.fillRect(x + 2, y + 22, 5, 2);
+      ctx.fillRect(x + 9, y + 22, 5, 2);
+    }
+
+    /* ──────────────────────────────────────────────────────
+       4.  Button wiring
+       ────────────────────────────────────────────────────── */
+
+    document.querySelectorAll('[data-key]').forEach(btn => {
+      btn.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        btn.classList.add('active');
+        playClick(btn.classList.contains('dpad-btn') ? 600 : 1000);
+      });
+      btn.addEventListener('pointerup', () => btn.classList.remove('active'));
+      btn.addEventListener('pointerleave', () => btn.classList.remove('active'));
+    });
+
+    // Keyboard support
+    const keyMap = {
+      ArrowUp: 'up', ArrowDown: 'down',
+      ArrowLeft: 'left', ArrowRight: 'right',
+      z: 'b', x: 'a',
+      Enter: 'start', Shift: 'select',
+    };
+
+    document.addEventListener('keydown', e => {
+      const key = keyMap[e.key];
+      if (!key) return;
+      const btn = document.querySelector(`[data-key="${key}"]`);
+      if (btn) {
+        btn.classList.add('active');
+        playClick(btn.classList.contains('dpad-btn') ? 600 : 1000);
+      }
+    });
+    document.addEventListener('keyup', e => {
+      const key = keyMap[e.key];
+      if (!key) return;
+      const btn = document.querySelector(`[data-key="${key}"]`);
+      if (btn) btn.classList.remove('active');
+    });
+
+    /* ──────────────────────────────────────────────────────
+       5.  Speaker grille dots
+       ────────────────────────────────────────────────────── */
+
+    const speakerEl = document.getElementById('speaker');
+    for (let i = 0; i < 18; i++) {
+      const s = document.createElement('span');
+      speakerEl.appendChild(s);
+    }
+
+    /* ──────────────────────────────────────────────────────
+       6.  LitElement Settings Widget
+       ────────────────────────────────────────────────────── */
+
+    import { LitElement, html, css } from 'https://cdn.jsdelivr.net/npm/lit@3.1.0/+esm';
+
+    class T2SettingsWidget extends LitElement {
+      static properties = {
+        brightness: { type: Number },
+        contrast: { type: Number },
+        volume: { type: Number },
+      };
+
+      constructor() {
+        super();
+        this.brightness = 1;
+        this.contrast = 1;
+        this.volume = 0.6;
+      }
+
+      render() {
+        return html`
+      <style>
+        :host {
+          display: block;
+          background: #16213e;
+          color: #e0e0e0;
+          border: 1px solid #0f3460;
+          border-radius: 10px;
+          padding: 18px 20px;
+          font-family: 'Courier New', monospace;
+          font-size: 12px;
+          min-width: 220px;
+          box-shadow: 0 4px 20px rgba(0,0,0,.4);
+        }
+        h3 {
+          margin: 0 0 12px;
+          color: #e94560;
+          font-size: 13px;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+        }
+        .row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 10px;
+        }
+        label { flex: 1; }
+        input[type=range] {
+          width: 100px;
+          accent-color: #e94560;
+        }
+        .val { width: 32px; text-align: right; color: #0f3460; font-weight: 700; }
+      </style>
+      <h3>⚙ T2 Settings</h3>
+      <div class="row">
+        <label>Brightness</label>
+        <input type="range" min="0.3" max="1.8" step="0.1" .value="${this.brightness}"
+               @input=${e => this._set('brightness', +e.target.value)} />
+        <span class="val">${this.brightness.toFixed(1)}</span>
+      </div>
+      <div class="row">
+        <label>Contrast</label>
+        <input type="range" min="0.5" max="2" step="0.1" .value="${this.contrast}"
+               @input=${e => this._set('contrast', +e.target.value)} />
+        <span class="val">${this.contrast.toFixed(1)}</span>
+      </div>
+      <div class="row">
+        <label>Volume</label>
+        <input type="range" min="0" max="1" step="0.05" .value="${this.volume}"
+               @input=${e => this._set('volume', +e.target.value)} />
+        <span class="val">${this.volume.toFixed(2)}</span>
+      </div>
+    `;
+      }
+
+      _set(prop, val) {
+        this[prop] = val;
+        this._apply();
+      }
+
+      _apply() {
+        document.documentElement.style.setProperty('--brightness', this.brightness);
+        document.documentElement.style.setProperty('--contrast', this.contrast);
+        if (musicHowl) musicHowl.volume(this.volume);
+      }
+
+      static styles = css`
+    :host { display: block; }
+  `;
+    }
+
+    customElements.define('t2-settings-widget', T2SettingsWidget);
+
+    /* ──────────────────────────────────────────────────────
+       7.  Boot sequence
+       ────────────────────────────────────────────────────── */
+
+    window.addEventListener('load', () => {
+      drawScene();
+      document.getElementById('led').classList.add('on');
+      initMusic();
+    });
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GameBoy - Terminator 2 Edition</title>
+  <!-- Howler.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.4/howler.min.js"></script>
+  <!-- LitElement CDN -->
+  <script type="module">
+    import { LitElement, html, css } from 'https://cdn.jsdelivr.net/gh/lit/dist@3/core/lit-core.min.js';
+
+    class GameBoyControls extends LitElement {
+      static styles = css`
+                :host {
+                    display: block;
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                }
+
+                .control-panel {
+                    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                    border-radius: 16px;
+                    padding: 24px;
+                    color: #eee;
+                    box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+                    min-width: 280px;
+                    border: 1px solid rgba(255,255,255,0.1);
+                }
+
+                h3 {
+                    margin: 0 0 20px 0;
+                    font-size: 18px;
+                    color: #4fc3f7;
+                    text-transform: uppercase;
+                    letter-spacing: 2px;
+                    text-align: center;
+                    border-bottom: 2px solid #4fc3f7;
+                    padding-bottom: 10px;
+                }
+
+                .control-group {
+                    margin-bottom: 20px;
+                }
+
+                label {
+                    display: block;
+                    margin-bottom: 8px;
+                    font-size: 13px;
+                    color: #aaa;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                }
+
+                input[type="range"] {
+                    width: 100%;
+                    height: 8px;
+                    border-radius: 4px;
+                    background: #0f0f1e;
+                    outline: none;
+                    -webkit-appearance: none;
+                    border: 1px solid #333;
+                }
+
+                input[type="range"]::-webkit-slider-thumb {
+                    -webkit-appearance: none;
+                    width: 20px;
+                    height: 20px;
+                    border-radius: 50%;
+                    background: #4fc3f7;
+                    cursor: pointer;
+                    box-shadow: 0 0 10px rgba(79, 195, 247, 0.5);
+                    transition: transform 0.2s;
+                }
+
+                input[type="range"]::-webkit-slider-thumb:hover {
+                    transform: scale(1.2);
+                }
+
+                input[type="color"] {
+                    width: 100%;
+                    height: 40px;
+                    border: none;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    background: transparent;
+                }
+
+                .toggle-btn {
+                    width: 100%;
+                    padding: 12px;
+                    background: linear-gradient(135deg, #4fc3f7 0%, #0288d1 100%);
+                    border: none;
+                    border-radius: 8px;
+                    color: white;
+                    font-weight: bold;
+                    cursor: pointer;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                    transition: all 0.3s;
+                    box-shadow: 0 4px 15px rgba(79, 195, 247, 0.3);
+                }
+
+                .toggle-btn:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 6px 20px rgba(79, 195, 247, 0.4);
+                }
+
+                .toggle-btn:active {
+                    transform: translateY(0);
+                }
+
+                .value-display {
+                    text-align: right;
+                    font-size: 12px;
+                    color: #4fc3f7;
+                    margin-top: 4px;
+                }
+            `;
+
+      static properties = {
+        screenBrightness: { type: Number },
+        volume: { type: Number },
+        bodyColor: { type: String },
+        musicPlaying: { type: Boolean }
+      };
+
+      constructor() {
+        super();
+        this.screenBrightness = 100;
+        this.volume = 70;
+        this.bodyColor = '#9ca0a3';
+        this.musicPlaying = false;
+      }
+
+      _updateBrightness(e) {
+        this.screenBrightness = e.target.value;
+        this._dispatchChange('brightness', this.screenBrightness);
+      }
+
+      _updateVolume(e) {
+        this.volume = e.target.value;
+        this._dispatchChange('volume', this.volume);
+      }
+
+      _updateColor(e) {
+        this.bodyColor = e.target.value;
+        this._dispatchChange('color', this.bodyColor);
+      }
+
+      _toggleMusic() {
+        this.musicPlaying = !this.musicPlaying;
+        this._dispatchChange('toggle-music', this.musicPlaying);
+      }
+
+      _dispatchChange(type, value) {
+        this.dispatchEvent(new CustomEvent('gameboy-control', {
+          detail: { type, value },
+          bubbles: true,
+          composed: true
+        }));
+      }
+
+      render() {
+        return html`
+                    <div class="control-panel">
+                        <h3>⚙️ Settings</h3>
+
+                        <div class="control-group">
+                            <label>Screen Brightness</label>
+                            <input type="range"
+                                   min="20" max="150"
+                                   .value="${this.screenBrightness}"
+                                   @input="${this._updateBrightness}">
+                            <div class="value-display">${this.screenBrightness}%</div>
+                        </div>
+
+                        <div class="control-group">
+                            <label>Master Volume</label>
+                            <input type="range"
+                                   min="0" max="100"
+                                   .value="${this.volume}"
+                                   @input="${this._updateVolume}">
+                            <div class="value-display">${this.volume}%</div>
+                        </div>
+
+                        <div class="control-group">
+                            <label>Body Color</label>
+                            <input type="color"
+                                   .value="${this.bodyColor}"
+                                   @input="${this._updateColor}">
+                        </div>
+
+                        <button class="toggle-btn" @click="${this._toggleMusic}">
+                            ${this.musicPlaying ? '⏸ Pause Music' : '▶ Play Music'}
+                        </button>
+                    </div>
+                `;
+      }
+    }
+
+    customElements.define('gameboy-controls', GameBoyControls);
+  </script>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: 'Courier New', monospace;
+      overflow-x: auto;
+      padding: 40px;
+      gap: 40px;
+    }
+
+    /* GameBoy Container */
+    .gameboy-container {
+      position: relative;
+      filter: drop-shadow(0 20px 60px rgba(0, 0, 0, 0.5));
+    }
+
+    /* Main GameBoy Body */
+    .gameboy {
+      width: 340px;
+      height: 560px;
+      background: linear-gradient(145deg, #b8b8b8 0%, #9ca0a3 50%, #8a8e91 100%);
+      border-radius: 20px 20px 80px 20px;
+      position: relative;
+      box-shadow:
+        inset 2px 2px 5px rgba(255, 255, 255, 0.5),
+        inset -2px -2px 5px rgba(0, 0, 0, 0.2),
+        10px 10px 30px rgba(0, 0, 0, 0.4),
+        -5px -5px 20px rgba(255, 255, 255, 0.1);
+      padding: 20px;
+      transition: background 0.3s;
+    }
+
+    /* Top bezel line */
+    .gameboy::before {
+      content: '';
+      position: absolute;
+      top: 30px;
+      left: 15px;
+      right: 15px;
+      height: 2px;
+      background: rgba(0, 0, 0, 0.1);
+      border-radius: 2px;
+    }
+
+    /* Power LED area */
+    .power-indicator {
+      position: absolute;
+      top: 50px;
+      left: 40px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .power-led {
+      width: 10px;
+      height: 10px;
+      background: #333;
+      border-radius: 50%;
+      box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.5);
+      transition: all 0.3s;
+    }
+
+    .power-led.on {
+      background: #ff3333;
+      box-shadow:
+        0 0 10px #ff3333,
+        0 0 20px #ff3333,
+        inset -1px -1px 2px rgba(0, 0, 0, 0.3);
+    }
+
+    .power-text {
+      font-size: 8px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: bold;
+    }
+
+    /* Screen Bezel */
+    .screen-bezel {
+      position: absolute;
+      top: 70px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 260px;
+      height: 200px;
+      background: #555;
+      border-radius: 15px 15px 40px 15px;
+      box-shadow:
+        inset 3px 3px 8px rgba(0, 0, 0, 0.5),
+        inset -2px -2px 5px rgba(255, 255, 255, 0.1),
+        2px 2px 5px rgba(0, 0, 0, 0.3);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 15px;
+    }
+
+    /* Screen header text */
+    .screen-header {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      padding: 0 10px;
+      margin-bottom: 8px;
+    }
+
+    .screen-header span {
+      font-size: 7px;
+      color: #aaa;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .screen-header .stereo {
+      color: #888;
+    }
+
+    /* The LCD Screen */
+    .screen {
+      width: 160px;
+      height: 144px;
+      background: #8bac0f;
+      border: 3px solid #333;
+      border-radius: 3px;
+      position: relative;
+      overflow: hidden;
+      box-shadow:
+        inset 0 0 20px rgba(0, 0, 0, 0.2),
+        0 0 10px rgba(139, 172, 15, 0.3);
+      image-rendering: pixelated;
+      transition: filter 0.3s;
+    }
+
+    /* Screen content - Terminator 2 Scene */
+    .screen-content {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      background: linear-gradient(180deg, #4a5d23 0%, #3d4f1c 100%);
+    }
+
+    /* Pixel art T-800 face approximation using CSS */
+    .t800-scene {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background:
+        /* Eye glow */
+        radial-gradient(ellipse 8px 4px at 45% 45%, #ff6b6b 0%, transparent 70%),
+        radial-gradient(ellipse 8px 4px at 55% 45%, #ff6b6b 0%, transparent 70%),
+        /* Metallic face base */
+        linear-gradient(180deg,
+          rgba(100, 100, 100, 0.3) 0%,
+          rgba(80, 80, 80, 0.5) 50%,
+          rgba(60, 60, 60, 0.7) 100%);
+    }
+
+    /* Scanlines effect */
+    .screen::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: repeating-linear-gradient(0deg,
+          rgba(0, 0, 0, 0.1) 0px,
+          rgba(0, 0, 0, 0.1) 1px,
+          transparent 1px,
+          transparent 2px);
+      pointer-events: none;
+    }
+
+    /* Nintendo Logo below screen */
+    .brand {
+      position: absolute;
+      top: 290px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: 'Pretendo', 'Arial Black', sans-serif;
+      font-size: 14px;
+      color: #1a237e;
+      font-weight: 900;
+      letter-spacing: 1px;
+      text-shadow:
+        1px 1px 0 rgba(255, 255, 255, 0.3),
+        -1px -1px 0 rgba(0, 0, 0, 0.1);
+    }
+
+    /* D-Pad */
+    .dpad {
+      position: absolute;
+      bottom: 180px;
+      left: 35px;
+      width: 90px;
+      height: 90px;
+    }
+
+    .dpad-vertical {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 30px;
+      height: 90px;
+      background: linear-gradient(145deg, #333 0%, #1a1a1a 100%);
+      border-radius: 3px;
+      box-shadow:
+        2px 2px 5px rgba(0, 0, 0, 0.4),
+        inset 1px 1px 2px rgba(255, 255, 255, 0.1);
+    }
+
+    .dpad-horizontal {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 90px;
+      height: 30px;
+      background: linear-gradient(145deg, #333 0%, #1a1a1a 100%);
+      border-radius: 3px;
+      box-shadow:
+        2px 2px 5px rgba(0, 0, 0, 0.4),
+        inset 1px 1px 2px rgba(255, 255, 255, 0.1);
+    }
+
+    .dpad-center {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 28px;
+      height: 28px;
+      background: radial-gradient(circle, #2a2a2a 0%, #1a1a1a 100%);
+      border-radius: 50%;
+      z-index: 2;
+    }
+
+    /* D-Pad directional buttons */
+    .dpad-up,
+    .dpad-down,
+    .dpad-left,
+    .dpad-right {
+      position: absolute;
+      cursor: pointer;
+      z-index: 3;
+      transition: all 0.1s;
+    }
+
+    .dpad-up {
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 30px;
+      height: 30px;
+      clip-path: polygon(50% 30%, 100% 100%, 0% 100%);
+    }
+
+    .dpad-down {
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 30px;
+      height: 30px;
+      clip-path: polygon(0% 0%, 100% 0%, 50% 70%);
+    }
+
+    .dpad-left {
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 30px;
+      height: 30px;
+      clip-path: polygon(30% 50%, 100% 0%, 100% 100%);
+    }
+
+    .dpad-right {
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 30px;
+      height: 30px;
+      clip-path: polygon(0% 0%, 70% 50%, 0% 100%);
+    }
+
+    .dpad-up:active,
+    .dpad-down:active,
+    .dpad-left:active,
+    .dpad-right:active {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* A/B Buttons */
+    .buttons-ab {
+      position: absolute;
+      bottom: 190px;
+      right: 30px;
+      display: flex;
+      gap: 15px;
+      transform: rotate(-15deg);
+    }
+
+    .btn-ab {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(145deg, #8b0000 0%, #5c0000 100%);
+      box-shadow:
+        2px 3px 5px rgba(0, 0, 0, 0.4),
+        inset 2px 2px 3px rgba(255, 255, 255, 0.2),
+        inset -2px -2px 3px rgba(0, 0, 0, 0.3);
+      cursor: pointer;
+      position: relative;
+      transition: all 0.1s;
+    }
+
+    .btn-ab:active {
+      transform: translateY(2px);
+      box-shadow:
+        1px 1px 3px rgba(0, 0, 0, 0.4),
+        inset 2px 2px 3px rgba(0, 0, 0, 0.3);
+    }
+
+    .btn-ab::after {
+      content: attr(data-label);
+      position: absolute;
+      bottom: -20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 12px;
+      color: #1a237e;
+      font-weight: bold;
+      font-family: 'Arial', sans-serif;
+    }
+
+    /* Start/Select Buttons */
+    .buttons-start-select {
+      position: absolute;
+      bottom: 110px;
+      left: 50%;
+      transform: translateX(-50%) rotate(-15deg);
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn-flat {
+      width: 50px;
+      height: 12px;
+      background: linear-gradient(145deg, #666 0%, #444 100%);
+      border-radius: 10px;
+      box-shadow:
+        1px 2px 3px rgba(0, 0, 0, 0.4),
+        inset 1px 1px 2px rgba(255, 255, 255, 0.1);
+      cursor: pointer;
+      position: relative;
+      transition: all 0.1s;
+    }
+
+    .btn-flat:active {
+      transform: translateY(1px);
+      box-shadow:
+        1px 1px 2px rgba(0, 0, 0, 0.4),
+        inset 1px 1px 2px rgba(0, 0, 0, 0.3);
+    }
+
+    .btn-flat::after {
+      content: attr(data-label);
+      position: absolute;
+      bottom: -18px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 8px;
+      color: #1a237e;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: bold;
+      white-space: nowrap;
+    }
+
+    /* Speaker Grille */
+    .speaker {
+      position: absolute;
+      bottom: 40px;
+      right: 40px;
+      display: flex;
+      gap: 6px;
+      transform: rotate(-15deg);
+    }
+
+    .speaker-line {
+      width: 4px;
+      height: 50px;
+      background: linear-gradient(180deg, #666 0%, #444 50%, #333 100%);
+      border-radius: 2px;
+      box-shadow:
+        1px 1px 2px rgba(0, 0, 0, 0.3),
+        inset 1px 0 1px rgba(255, 255, 255, 0.1);
+    }
+
+    /* Decorative lines */
+    .decoration {
+      position: absolute;
+      bottom: 80px;
+      left: 30px;
+      font-size: 10px;
+      color: #1a237e;
+      font-weight: bold;
+      letter-spacing: 1px;
+      opacity: 0.7;
+    }
+
+    /* Control panel positioning */
+    .controls-wrapper {
+      position: sticky;
+      top: 40px;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      body {
+        flex-direction: column;
+        padding: 20px;
+      }
+
+      .controls-wrapper {
+        position: relative;
+        top: 0;
+        width: 100%;
+        max-width: 340px;
+      }
+    }
+
+    /* Pixel art overlay for T2 scene */
+    .pixel-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image:
+        repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 0, 0, 0.03) 2px, rgba(0, 0, 0, 0.03) 4px),
+        repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0, 0, 0, 0.03) 2px, rgba(0, 0, 0, 0.03) 4px);
+      pointer-events: none;
+    }
+
+    /* T-800 HUD elements */
+    .hud-text {
+      position: absolute;
+      bottom: 5px;
+      left: 5px;
+      font-size: 8px;
+      color: #8bac0f;
+      font-family: monospace;
+      text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.5);
+    }
+
+    .target-box {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 40px;
+      height: 30px;
+      border: 1px solid rgba(139, 172, 15, 0.6);
+      background: rgba(139, 172, 15, 0.1);
+    }
+
+    .target-box::before,
+    .target-box::after {
+      content: '';
+      position: absolute;
+      border: 1px solid rgba(139, 172, 15, 0.4);
+    }
+
+    .target-box::before {
+      top: -5px;
+      left: -5px;
+      right: -5px;
+      bottom: -5px;
+    }
+  </style>
+  <base target="_blank">
+</head>
+
+<body>
+  <div class="gameboy-container">
+    <div class="gameboy" id="gameboy">
+      <!-- Power LED -->
+      <div class="power-indicator">
+        <div class="power-led" id="powerLed"></div>
+        <span class="power-text">Battery</span>
+      </div>
+
+      <!-- Screen Area -->
+      <div class="screen-bezel">
+        <div class="screen-header">
+          <span>Dot Matrix</span>
+          <span class="stereo">Stereo Sound</span>
+        </div>
+        <div class="screen" id="screen">
+          <div class="screen-content">
+            <div class="t800-scene">
+              <div class="pixel-overlay"></div>
+              <div class="target-box"></div>
+              <div class="hud-text">TARGET: T-1000<br>MISSION: PROTECT</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Nintendo Branding -->
+      <div class="brand">Nintendo</div>
+
+      <!-- D-Pad -->
+      <div class="dpad">
+        <div class="dpad-vertical"></div>
+        <div class="dpad-horizontal"></div>
+        <div class="dpad-center"></div>
+        <div class="dpad-up" onclick="handleButton('up')"></div>
+        <div class="dpad-down" onclick="handleButton('down')"></div>
+        <div class="dpad-left" onclick="handleButton('left')"></div>
+        <div class="dpad-right" onclick="handleButton('right')"></div>
+      </div>
+
+      <!-- A/B Buttons -->
+      <div class="buttons-ab">
+        <div class="btn-ab" data-label="B" onclick="handleButton('B')"></div>
+        <div class="btn-ab" data-label="A" onclick="handleButton('A')"></div>
+      </div>
+
+      <!-- Start/Select -->
+      <div class="buttons-start-select">
+        <div class="btn-flat" data-label="Select" onclick="handleButton('select')"></div>
+        <div class="btn-flat" data-label="Start" onclick="handleButton('start')"></div>
+      </div>
+
+      <!-- Speaker -->
+      <div class="speaker">
+        <div class="speaker-line"></div>
+        <div class="speaker-line"></div>
+        <div class="speaker-line"></div>
+        <div class="speaker-line"></div>
+        <div class="speaker-line"></div>
+        <div class="speaker-line"></div>
+      </div>
+
+      <!-- Decorative -->
+      <div class="decoration">◈ ◈ ◈</div>
+    </div>
+  </div>
+
+  <!-- Control Widget -->
+  <div class="controls-wrapper">
+    <gameboy-controls id="controls"></gameboy-controls>
+  </div>
+
+  <script>
+    // Audio setup using Howler.js
+    // Using base64 encoded short sounds to ensure they work without external files
+
+    // Simple click sound (short beep)
+    const clickSoundData = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZSA0PVanu8LdnGgU1k9n1unEiBC13yO/eizEIHWq+8+OZSA0PVantu6tlHAU2k9n1uHAiBCx2xPDdijAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/eizAIHGm+8+OWSQ4OTqzs8blnHAU1k9r1uHEhBCx2xO/e
+  
