@@ -26,6 +26,7 @@ Also, please add a small control widget on the side of the page that lets a user
 | ![](minimax-agent/thumb.png) | [Versión de MiniMax](https://manzdev.github.io/gameboy-css-ai/minimax-agent/index.html) | [Código fuente](minimax-agent/index.html) |
 | ![](qwen-3.6-plus/thumb.png) | [Versión de Qwen 3.6 plus](https://manzdev.github.io/gameboy-css-ai/qwen-3.6-plus/index.html) | [Código fuente](qwen-3.6-plus/index.html) |
 | ![](glm-5-turbo/thumb.png) | [Versión de Z.ai GLM 5 Turbo](https://manzdev.github.io/gameboy-css-ai/glm-5-turbo/index.html) | [Código fuente](glm-5-turbo/index.html) |
+| ![](grok/thumb.png) | [Versión de Grok](https://manzdev.github.io/gameboy-css-ai/grok/index.html) | [Código fuente](grok/index.html) |
 | ![](manzdev-original-thumb.png) | [Original de ManzDev —No AI—](https://manzdev.github.io/gameboycss/) | [Código fuente](https://github.com/manzdev/gameboycss) |
 | ![](manzdev-new-thumb.png) | [Versión mejorada de ManzDev —No AI—](https://manzdev.github.io/twitch-gameboy-css/) | [Código fuente](https://github.com/manzdev/twitch-gameboy-css) |
 
