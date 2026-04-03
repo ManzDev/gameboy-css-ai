@@ -23,6 +23,7 @@ Also, please add a small control widget on the side of the page that lets a user
 | ![](gemini/thumb.png) | [Versión de Google Gemini](https://manzdev.github.io/gameboy-css-ai/gemini/index.html) | [Código fuente](gemini/index.html) |
 | ![](claude-haiku-4.5/thumb.png) | [Versión de Claude Haiku 4.5](https://manzdev.github.io/gameboy-css-ai/claude-haiku-4.5/index.html) | [Código fuente](claude-haiku-4.5/index.html) |
 | ![](kimi-k2.5/thumb.png) | [Versión de Kimi k2.5](https://manzdev.github.io/gameboy-css-ai/kimi-k2.5/index.html) | [Código fuente](kimi-k2.5/index.html) |
+| ![](claude-opus-4.6/thumb.png) | [Versión de Claude Opus 4.6](https://manzdev.github.io/gameboy-css-ai/claude-opus-4.6/index.html) | [Código fuente](claude-opus-4.6/index.html) |
 | ![](minimax-agent/thumb.png) | [Versión de MiniMax](https://manzdev.github.io/gameboy-css-ai/minimax-agent/index.html) | [Código fuente](minimax-agent/index.html) |
 | ![](qwen-3.6-plus/thumb.png) | [Versión de Qwen 3.6 plus](https://manzdev.github.io/gameboy-css-ai/qwen-3.6-plus/index.html) | [Código fuente](qwen-3.6-plus/index.html) |
 | ![](glm-5-turbo/thumb.png) | [Versión de Z.ai GLM 5 Turbo](https://manzdev.github.io/gameboy-css-ai/glm-5-turbo/index.html) | [Código fuente](glm-5-turbo/index.html) |
@@ -32,4 +33,6 @@ Also, please add a small control widget on the side of the page that lets a user
 
 ## Créditos
 
-Idea original de **Mei**. Llevada a cabo por [ManzDev](https://manz.dev/).
+- Idea original de **Mei**.
+- Llevada a cabo por [ManzDev](https://manz.dev/).
+- Versión de Opus 4.6 gracias a AlinedMooner.

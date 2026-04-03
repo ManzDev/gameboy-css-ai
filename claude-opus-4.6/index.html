@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Classic GameBoy</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.4/howler.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Gill+Sans:wght@400;600&display=swap');
+
+    :root {
+      --gb-body: #c0b8a8;
+      --gb-body-dark: #a8a090;
+      --gb-body-shadow: #908880;
+      --gb-bezel: #6a6670;
+      --gb-screen-bg: #8b9a2e;
+      --gb-screen-dark: #0f380f;
+      --gb-screen-mid: #306230;
+      --gb-screen-light: #8bac0f;
+      --gb-screen-lightest: #9bbc0f;
+      --gb-dpad: #2a2a2e;
+      --gb-btn-a: #8b1a4a;
+      --gb-btn-b: #8b1a4a;
+      --gb-purple: #2a1a3e;
+      --gb-label: #1a1a2e;
+      --screen-brightness: 1;
+      --screen-contrast: 1;
+      --scanline-opacity: 0.08;
+      --pixel-gap: 0;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #1a1a2e;
+      background-image:
+        radial-gradient(ellipse at 30% 20%, #2a1a3e 0%, transparent 50%),
+        radial-gradient(ellipse at 70% 80%, #1a2a3e 0%, transparent 50%);
+      font-family: 'Gill Sans', sans-serif;
+      overflow: hidden;
+      gap: 30px;
+    }
+
+    .power-overlay {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      cursor: pointer;
+      transition: opacity 0.6s ease;
+    }
+
+    .power-overlay.off {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .power-overlay h1 {
+      font-family: 'Press Start 2P', monospace;
+      color: #9bbc0f;
+      font-size: 18px;
+      text-shadow: 0 0 20px #9bbc0f88;
+      animation: blink 1.2s ease-in-out infinite;
+    }
+
+    .power-overlay p {
+      color: #556;
+      font-size: 13px;
+      margin-top: 16px;
+      font-family: 'Gill Sans', sans-serif;
+    }
+
+    @keyframes blink {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.3;
+      }
+    }
+
+    /* === GAMEBOY SHELL === */
+    .gameboy {
+      width: 340px;
+      min-height: 580px;
+      background: linear-gradient(165deg, #d0c8b8 0%, var(--gb-body) 30%, var(--gb-body-dark) 100%);
+      border-radius: 16px 16px 16px 80px;
+      padding: 20px 20px 30px;
+      position: relative;
+      box-shadow:
+        inset 1px 1px 0 #d8d0c0,
+        inset -1px -1px 0 var(--gb-body-shadow),
+        4px 4px 20px rgba(0, 0, 0, 0.5),
+        8px 8px 40px rgba(0, 0, 0, 0.3);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* Top notch */
+    .gameboy::before {
+      content: '';
+      position: absolute;
+      top: -3px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 80px;
+      height: 10px;
+      background: var(--gb-body-dark);
+      border-radius: 0 0 6px 6px;
+      box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Battery line */
+    .top-line {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      margin-bottom: 6px;
+      padding: 0 4px;
+    }
+
+    .top-line .line {
+      flex: 1;
+      height: 2px;
+      background: linear-gradient(90deg, var(--gb-body-shadow), var(--gb-body-dark));
+      border-radius: 1px;
+    }
+
+    /* === SCREEN AREA === */
+    .screen-housing {
+      width: 100%;
+      background: linear-gradient(170deg, #5a5668 0%, var(--gb-bezel) 40%, #4a4658 100%);
+      border-radius: 12px;
+      padding: 14px 16px 18px;
+      position: relative;
+      box-shadow:
+        inset 1px 1px 0 #7a768888,
+        inset -1px -1px 0 #3a364888;
+    }
+
+    .screen-label-top {
+      font-family: 'Gill Sans', sans-serif;
+      font-size: 7.5px;
+      color: #9a96a8;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      text-align: center;
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+
+    .screen-frame {
+      background: #2a2a20;
+      border-radius: 6px;
+      padding: 8px;
+      position: relative;
+      box-shadow: inset 2px 2px 6px rgba(0, 0, 0, 0.6);
+    }
+
+    .power-indicator {
+      position: absolute;
+      top: 12px;
+      left: -8px;
+      width: 6px;
+      height: 6px;
+      background: #333;
+      border-radius: 50%;
+      box-shadow: inset 0 0 2px rgba(0, 0, 0, 0.5);
+      transition: all 0.3s;
+    }
+
+    .power-indicator.on {
+      background: #e03030;
+      box-shadow: 0 0 6px #e0303088, 0 0 12px #e0303044;
+    }
+
+    .power-label {
+      position: absolute;
+      top: 22px;
+      left: -14px;
+      font-size: 5px;
+      color: var(--gb-bezel);
+      letter-spacing: 1px;
+      transform: rotate(-90deg);
+      font-weight: 600;
+    }
+
+    .screen-wrapper {
+      position: relative;
+      background: var(--gb-screen-bg);
+      border-radius: 3px;
+      overflow: hidden;
+      filter: brightness(var(--screen-brightness)) contrast(var(--screen-contrast));
+    }
+
+    #gameScreen {
+      display: block;
+      width: 280px;
+      height: 252px;
+      image-rendering: pixelated;
+    }
+
+    .scanlines {
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(0deg,
+          transparent 0px,
+          transparent 1px,
+          rgba(0, 0, 0, var(--scanline-opacity)) 1px,
+          rgba(0, 0, 0, var(--scanline-opacity)) 2px);
+      pointer-events: none;
+      border-radius: 3px;
+    }
+
+    .pixel-grid-overlay {
+      position: absolute;
+      inset: 0;
+      background:
+        repeating-linear-gradient(90deg, rgba(0, 0, 0, var(--pixel-gap)) 0px, transparent 1px, transparent 2px),
+        repeating-linear-gradient(0deg, rgba(0, 0, 0, var(--pixel-gap)) 0px, transparent 1px, transparent 2px);
+      pointer-events: none;
+      border-radius: 3px;
+    }
+
+    /* Brand label */
+    .brand-strip {
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .brand-strip .nintendo-logo {
+      font-family: 'Gill Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      font-style: italic;
+      color: var(--gb-purple);
+      letter-spacing: -0.5px;
+    }
+
+    .brand-strip .game-boy-label {
+      font-family: 'Gill Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--gb-label);
+      letter-spacing: 4px;
+      text-transform: uppercase;
+    }
+
+    .tm {
+      font-size: 5px;
+      vertical-align: super;
+      color: var(--gb-label);
+    }
+
+    /* === CONTROLS === */
+    .controls {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-top: 22px;
+      padding: 0 8px;
+    }
+
+    /* D-PAD */
+    .dpad-container {
+      position: relative;
+      width: 100px;
+      height: 100px;
+    }
+
+    .dpad-center {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 32px;
+      height: 32px;
+      background: var(--gb-dpad);
+      border-radius: 50%;
+      z-index: 2;
+      box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.5);
+    }
+
+    .dpad-arm {
+      position: absolute;
+      background: var(--gb-dpad);
+      cursor: pointer;
+      transition: filter 0.08s;
+      z-index: 1;
+    }
+
+    .dpad-arm:active {
+      filter: brightness(1.3);
+    }
+
+    .dpad-arm.up {
+      top: 4px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 30px;
+      height: 38px;
+      border-radius: 5px 5px 0 0;
+      box-shadow: inset 0 2px 3px rgba(255, 255, 255, 0.08);
+    }
+
+    .dpad-arm.down {
+      bottom: 4px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 30px;
+      height: 38px;
+      border-radius: 0 0 5px 5px;
+      box-shadow: inset 0 -2px 3px rgba(0, 0, 0, 0.3);
+    }
+
+    .dpad-arm.left {
+      left: 4px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 38px;
+      height: 30px;
+      border-radius: 5px 0 0 5px;
+      box-shadow: inset 2px 0 3px rgba(255, 255, 255, 0.08);
+    }
+
+    .dpad-arm.right {
+      right: 4px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 38px;
+      height: 30px;
+      border-radius: 0 5px 5px 0;
+      box-shadow: inset -2px 0 3px rgba(0, 0, 0, 0.3);
+    }
+
+    /* A / B Buttons */
+    .ab-buttons {
+      display: flex;
+      gap: 14px;
+      transform: rotate(-25deg);
+      margin-top: 10px;
+      margin-right: 4px;
+    }
+
+    .ab-btn {
+      width: 42px;
+      height: 42px;
+      background: var(--gb-btn-a);
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      box-shadow:
+        2px 3px 6px rgba(0, 0, 0, 0.4),
+        inset 0 1px 2px rgba(255, 255, 255, 0.15),
+        inset 0 -2px 3px rgba(0, 0, 0, 0.3);
+      position: relative;
+      transition: transform 0.06s, box-shadow 0.06s;
+    }
+
+    .ab-btn:active {
+      transform: translateY(2px);
+      box-shadow:
+        1px 1px 3px rgba(0, 0, 0, 0.4),
+        inset 0 1px 2px rgba(255, 255, 255, 0.1);
+    }
+
+    .ab-btn span {
+      font-family: 'Gill Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      color: #d0c8b8;
+      position: absolute;
+      bottom: -20px;
+      left: 50%;
+      transform: translateX(-50%) rotate(25deg);
+    }
+
+    /* Start / Select */
+    .ss-buttons {
+      display: flex;
+      gap: 20px;
+      margin-top: 20px;
+      justify-content: center;
+      transform: rotate(-25deg);
+    }
+
+    .ss-btn {
+      width: 36px;
+      height: 10px;
+      background: #7a7680;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: inset 0 -1px 2px rgba(0, 0, 0, 0.4), 1px 1px 2px rgba(0, 0, 0, 0.2);
+      transition: transform 0.06s;
+      position: relative;
+    }
+
+    .ss-btn:active {
+      transform: translateY(1px);
+    }
+
+    .ss-btn span {
+      position: absolute;
+      bottom: -14px;
+      left: 50%;
+      transform: translateX(-50%) rotate(25deg);
+      font-size: 7px;
+      letter-spacing: 2px;
+      color: var(--gb-label);
+      text-transform: uppercase;
+      white-space: nowrap;
+      font-family: 'Gill Sans', sans-serif;
+      font-weight: 600;
+    }
+
+    /* Speaker grille */
+    .speaker {
+      position: absolute;
+      bottom: 28px;
+      right: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      transform: rotate(-30deg);
+    }
+
+    .speaker-line {
+      width: 30px;
+      height: 3px;
+      background: var(--gb-body-shadow);
+      border-radius: 2px;
+      box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.3);
+    }
+
+    .speaker-line:nth-child(1) {
+      width: 16px;
+      margin-left: 10px;
+    }
+
+    .speaker-line:nth-child(6) {
+      width: 20px;
+      margin-left: 6px;
+    }
+
+    /* Phones label */
+    .phones-label {
+      position: absolute;
+      bottom: 10px;
+      left: 30px;
+      font-size: 6px;
+      color: var(--gb-body-shadow);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      font-family: 'Gill Sans', sans-serif;
+    }
+
+    /* Boot animation */
+    .boot-screen {
+      position: absolute;
+      inset: 0;
+      background: var(--gb-screen-lightest);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 5;
+      border-radius: 3px;
+      transition: opacity 0.5s;
+    }
+
+    .boot-screen.hide {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .boot-logo {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px;
+      color: var(--gb-screen-dark);
+      text-align: center;
+      animation: dropIn 1s ease-out forwards;
+    }
+
+    @keyframes dropIn {
+      0% {
+        transform: translateY(-80px);
+        opacity: 0;
+      }
+
+      60% {
+        transform: translateY(4px);
+        opacity: 1;
+      }
+
+      100% {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="power-overlay" id="powerOverlay" onclick="powerOn()">
+    <h1>PRESS START</h1>
+    <p>Click anywhere to power on</p>
+  </div>
+
+  <div class="gameboy">
+    <div class="top-line">
+      <div class="line"></div>
+    </div>
+
+    <div class="screen-housing">
+      <div class="screen-label-top">Dot Matrix with Stereo Sound</div>
+      <div class="screen-frame">
+        <div class="power-indicator" id="powerLed"></div>
+        <div class="power-label">POWER</div>
+        <div class="screen-wrapper">
+          <canvas id="gameScreen" width="160" height="144"></canvas>
+          <div class="boot-screen" id="bootScreen">
+            <div class="boot-logo" id="bootLogo"></div>
+          </div>
+          <div class="scanlines"></div>
+          <div class="pixel-grid-overlay"></div>
+        </div>
+      </div>
+      <div class="brand-strip">
+        <span class="nintendo-logo">Nintendo</span>
+        <span class="game-boy-label">GAME BOY</span>
+        <span class="tm">TM</span>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="dpad-container">
+        <div class="dpad-arm up" data-btn="up"></div>
+        <div class="dpad-arm down" data-btn="down"></div>
+        <div class="dpad-arm left" data-btn="left"></div>
+        <div class="dpad-arm right" data-btn="right"></div>
+        <div class="dpad-center"></div>
+      </div>
+      <div class="ab-buttons">
+        <button class="ab-btn" data-btn="B"><span>B</span></button>
+        <button class="ab-btn" data-btn="A"><span>A</span></button>
+      </div>
+    </div>
+
+    <div class="ss-buttons">
+      <button class="ss-btn" data-btn="SELECT"><span>Select</span></button>
+      <button class="ss-btn" data-btn="START"><span>Start</span></button>
+    </div>
+
+    <div class="speaker">
+      <div class="speaker-line"></div>
+      <div class="speaker-line"></div>
+      <div class="speaker-line"></div>
+      <div class="speaker-line"></div>
+      <div class="speaker-line"></div>
+      <div class="speaker-line"></div>
+    </div>
+    <div class="phones-label">&#x1f3a7; Phones</div>
+  </div>
+
+  <!-- LitElement Settings Panel -->
+  <gb-settings id="settingsPanel"></gb-settings>
+
+  <script type="module">
+    import { LitElement, html, css } from 'https://cdn.jsdelivr.net/npm/lit@3/+esm';
+
+    class GbSettings extends LitElement {
+      static properties = {
+        brightness: { type: Number },
+        contrast: { type: Number },
+        scanlines: { type: Number },
+        pixelGap: { type: Number },
+        tint: { type: String },
+        musicVol: { type: Number },
+        collapsed: { type: Boolean },
+      };
+
+      static styles = css`
+    :host {
+      display: block;
+      position: fixed;
+      right: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 100;
+      font-family: 'Gill Sans', 'Segoe UI', sans-serif;
+    }
+    .panel {
+      background: linear-gradient(145deg, #2a2a3e, #1e1e30);
+      border: 1px solid #3a3a5a;
+      border-radius: 12px;
+      padding: 16px;
+      width: 200px;
+      box-shadow: 4px 4px 24px rgba(0,0,0,0.5);
+      transition: all 0.3s ease;
+    }
+    .panel.collapsed {
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border-radius: 50%;
+    }
+    .panel.collapsed .content { display: none; }
+    .toggle-icon {
+      font-size: 18px;
+      color: #9bbc0f;
+      cursor: pointer;
+      text-align: center;
+    }
+    h3 {
+      margin: 0 0 14px;
+      font-size: 11px;
+      color: #9bbc0f;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      text-align: center;
+      font-weight: 600;
+    }
+    .control-row {
+      margin-bottom: 10px;
+    }
+    label {
+      display: block;
+      font-size: 9px;
+      color: #8888aa;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    input[type="range"] {
+      width: 100%;
+      height: 4px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: #3a3a5a;
+      border-radius: 2px;
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px;
+      background: #9bbc0f;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 0 6px #9bbc0f44;
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 14px; height: 14px;
+      background: #9bbc0f;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    .tint-row {
+      display: flex;
+      gap: 6px;
+      margin-top: 2px;
+    }
+    .tint-swatch {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: border-color 0.2s, transform 0.15s;
+    }
+    .tint-swatch:hover { transform: scale(1.15); }
+    .tint-swatch.active { border-color: #fff; }
+    .divider {
+      height: 1px;
+      background: #3a3a5a;
+      margin: 12px 0;
+    }
+    .val-display {
+      font-size: 9px;
+      color: #6a6a8a;
+      float: right;
+      margin-top: -14px;
+    }
+  `;
+
+      constructor() {
+        super();
+        this.brightness = 1;
+        this.contrast = 1;
+        this.scanlines = 0.08;
+        this.pixelGap = 0;
+        this.tint = 'green';
+        this.musicVol = 0.4;
+        this.collapsed = false;
+      }
+
+      _apply() {
+        const r = document.documentElement.style;
+        r.setProperty('--screen-brightness', this.brightness);
+        r.setProperty('--screen-contrast', this.contrast);
+        r.setProperty('--scanline-opacity', this.scanlines);
+        r.setProperty('--pixel-gap', this.pixelGap);
+
+        const tints = {
+          green: { bg: '#8b9a2e', dk: '#0f380f', md: '#306230', lt: '#8bac0f', lts: '#9bbc0f' },
+          amber: { bg: '#8a7a2e', dk: '#2a1a00', md: '#5a4a10', lt: '#c0a030', lts: '#d4b840' },
+          grey: { bg: '#7a7a7a', dk: '#111111', md: '#444444', lt: '#aaaaaa', lts: '#cccccc' },
+          blue: { bg: '#2e5a7a', dk: '#0a1a2e', md: '#1a3a5a', lt: '#4a8ab0', lts: '#6aAAcc' },
+        };
+        const t = tints[this.tint] || tints.green;
+        r.setProperty('--gb-screen-bg', t.bg);
+        r.setProperty('--gb-screen-dark', t.dk);
+        r.setProperty('--gb-screen-mid', t.md);
+        r.setProperty('--gb-screen-light', t.lt);
+        r.setProperty('--gb-screen-lightest', t.lts);
+
+        if (window.redrawScene) window.redrawScene();
+        if (window.chiptuneGain) window.chiptuneGain.gain.value = this.musicVol;
+      }
+
+      _onInput(prop, e) {
+        this[prop] = parseFloat(e.target.value);
+        this._apply();
+      }
+
+      _setTint(t) {
+        this.tint = t;
+        this._apply();
+      }
+
+      _toggle() {
+        this.collapsed = !this.collapsed;
+      }
+
+      render() {
+        return html`
+      <div class="panel ${this.collapsed ? 'collapsed' : ''}" @click=${this.collapsed ? this._toggle : null}>
+        ${this.collapsed ? html`<div class="toggle-icon">⚙</div>` : html`
+          <div class="toggle-icon" @click=${this._toggle} style="position:absolute;top:8px;right:12px;font-size:14px;">✕</div>
+          <div class="content">
+            <h3>Settings</h3>
+
+            <div class="control-row">
+              <label>Brightness</label>
+              <input type="range" min="0.4" max="1.6" step="0.05" .value=${String(this.brightness)} @input=${(e) => this._onInput('brightness', e)}>
+              <span class="val-display">${this.brightness.toFixed(2)}</span>
+            </div>
+
+            <div class="control-row">
+              <label>Contrast</label>
+              <input type="range" min="0.5" max="2" step="0.05" .value=${String(this.contrast)} @input=${(e) => this._onInput('contrast', e)}>
+              <span class="val-display">${this.contrast.toFixed(2)}</span>
+            </div>
+
+            <div class="control-row">
+              <label>Scanlines</label>
+              <input type="range" min="0" max="0.3" step="0.01" .value=${String(this.scanlines)} @input=${(e) => this._onInput('scanlines', e)}>
+              <span class="val-display">${this.scanlines.toFixed(2)}</span>
+            </div>
+
+            <div class="control-row">
+              <label>Pixel Grid</label>
+              <input type="range" min="0" max="0.15" step="0.01" .value=${String(this.pixelGap)} @input=${(e) => this._onInput('pixelGap', e)}>
+              <span class="val-display">${this.pixelGap.toFixed(2)}</span>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="control-row">
+              <label>Screen Tint</label>
+              <div class="tint-row">
+                <div class="tint-swatch ${this.tint === 'green' ? 'active' : ''}" style="background:#8bac0f" @click=${() => this._setTint('green')}></div>
+                <div class="tint-swatch ${this.tint === 'amber' ? 'active' : ''}" style="background:#c0a030" @click=${() => this._setTint('amber')}></div>
+                <div class="tint-swatch ${this.tint === 'grey' ? 'active' : ''}" style="background:#aaaaaa" @click=${() => this._setTint('grey')}></div>
+                <div class="tint-swatch ${this.tint === 'blue' ? 'active' : ''}" style="background:#4a8ab0" @click=${() => this._setTint('blue')}></div>
+              </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="control-row">
+              <label>Music Volume</label>
+              <input type="range" min="0" max="1" step="0.05" .value=${String(this.musicVol)} @input=${(e) => this._onInput('musicVol', e)}>
+              <span class="val-display">${Math.round(this.musicVol * 100)}%</span>
+            </div>
+          </div>
+        `}
+      </div>
+    `;
+      }
+    }
+
+    customElements.define('gb-settings', GbSettings);
+  </script>
+
+  <script>
+    // ============ AUDIO ENGINE ============
+    let audioCtx;
+    let chiptuneGain;
+    window.chiptuneGain = null;
+
+    // Generate a click sound as a Howl-compatible data URI
+    function generateClickBuffer() {
+      const sr = 22050;
+      const len = sr * 0.04;
+      const buf = new Float32Array(len);
+      for (let i = 0; i < len; i++) {
+        const t = i / sr;
+        buf[i] = Math.sin(t * 3200 * Math.PI * 2) * Math.exp(-t * 80) * 0.5;
+      }
+      return floatsToWavDataURI(buf, sr);
+    }
+
+    function floatsToWavDataURI(samples, sampleRate) {
+      const numCh = 1, bitsPerSample = 16;
+      const byteRate = sampleRate * numCh * bitsPerSample / 8;
+      const blockAlign = numCh * bitsPerSample / 8;
+      const dataSize = samples.length * blockAlign;
+      const buffer = new ArrayBuffer(44 + dataSize);
+      const view = new DataView(buffer);
+      function writeStr(off, str) { for (let i = 0; i < str.length; i++) view.setUint8(off + i, str.charCodeAt(i)); }
+      writeStr(0, 'RIFF');
+      view.setUint32(4, 36 + dataSize, true);
+      writeStr(8, 'WAVE');
+      writeStr(12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, numCh, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, byteRate, true);
+      view.setUint16(32, blockAlign, true);
+      view.setUint16(34, bitsPerSample, true);
+      writeStr(36, 'data');
+      view.setUint32(40, dataSize, true);
+      let offset = 44;
+      for (let i = 0; i < samples.length; i++) {
+        const s = Math.max(-1, Math.min(1, samples[i]));
+        view.setInt16(offset, s * 0x7FFF, true);
+        offset += 2;
+      }
+      const blob = new Blob([buffer], { type: 'audio/wav' });
+      return URL.createObjectURL(blob);
+    }
+
+    let clickSound = null;
+
+    function initHowlerClick() {
+      const uri = generateClickBuffer();
+      clickSound = new Howl({ src: [uri], format: ['wav'], volume: 0.6 });
+    }
+
+    function playClick() {
+      if (clickSound) clickSound.play();
+    }
+
+    // ============ CHIPTUNE MUSIC ENGINE (Web Audio API) ============
+    function startChiptune() {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      chiptuneGain = audioCtx.createGain();
+      chiptuneGain.gain.value = 0.4;
+      chiptuneGain.connect(audioCtx.destination);
+      window.chiptuneGain = chiptuneGain;
+
+      // Dramatic minor-key melody — original composition
+      // Notes in Hz
+      const n = {
+        C3: 130.81, D3: 146.83, Eb3: 155.56, E3: 164.81, F3: 174.61, G3: 196.00, Ab3: 207.65, Bb3: 233.08,
+        C4: 261.63, D4: 293.66, Eb4: 311.13, E4: 329.63, F4: 349.23, G4: 392.00, Ab4: 415.30, Bb4: 466.16,
+        C5: 523.25, D5: 587.33, Eb5: 622.25,
+      };
+
+      // Melody pattern (frequency, duration in beats)
+      const melody = [
+        [n.C4, 2], [n.Eb4, 1], [n.G4, 1], [n.Ab4, 2], [n.G4, 2],
+        [n.F4, 1], [n.Eb4, 1], [n.F4, 1], [n.Eb4, 1], [n.D4, 2], [0, 2],
+        [n.C4, 2], [n.Eb4, 1], [n.G4, 1], [n.Bb4, 2], [n.Ab4, 1], [n.G4, 1],
+        [n.F4, 1.5], [n.Eb4, 0.5], [n.D4, 1], [n.C4, 1], [n.C4, 2], [0, 2],
+        [n.C5, 2], [n.Bb4, 1], [n.Ab4, 1], [n.G4, 2], [n.Eb4, 2],
+        [n.F4, 1], [n.G4, 1], [n.Ab4, 1], [n.G4, 1], [n.F4, 2], [0, 2],
+        [n.Eb4, 1], [n.D4, 1], [n.C4, 2], [n.D4, 1], [n.Eb4, 1], [n.F4, 2],
+        [n.Eb4, 1.5], [n.D4, 0.5], [n.C4, 3], [0, 1],
+      ];
+
+      // Bass pattern
+      const bass = [
+        [n.C3, 4], [n.Ab3, 4], [n.F3, 4], [n.G3, 4],
+        [n.C3, 4], [n.Bb3, 4], [n.Ab3, 4], [n.G3, 4],
+        [n.Ab3, 4], [n.Eb3, 4], [n.F3, 4], [n.G3, 4],
+        [n.Ab3, 4], [n.Bb3, 4], [n.C3, 4], [n.G3, 4],
+      ];
+
+      const bpm = 130;
+      const beatLen = 60 / bpm;
+
+      function scheduleNote(freq, startTime, duration, type, gainNode, vol) {
+        if (freq === 0) return;
+        const osc = audioCtx.createOscillator();
+        const env = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        env.gain.setValueAtTime(vol, startTime);
+        env.gain.exponentialRampToValueAtTime(0.001, startTime + duration - 0.02);
+        osc.connect(env);
+        env.connect(gainNode);
+        osc.start(startTime);
+        osc.stop(startTime + duration);
+      }
+
+      function playLoop() {
+        const now = audioCtx.currentTime + 0.1;
+
+        let t = now;
+        for (const [freq, beats] of melody) {
+          scheduleNote(freq, t, beats * beatLen * 0.9, 'square', chiptuneGain, 0.12);
+          t += beats * beatLen;
+        }
+        const melodyLen = t - now;
+
+        // Layer bass to match melody length
+        let bt = now;
+        while (bt - now < melodyLen) {
+          for (const [freq, beats] of bass) {
+            if (bt - now >= melodyLen) break;
+            scheduleNote(freq, bt, beats * beatLen * 0.85, 'triangle', chiptuneGain, 0.18);
+            bt += beats * beatLen;
+          }
+        }
+
+        // Percussion (noise-ish via high freq square)
+        let pt = now;
+        while (pt - now < melodyLen) {
+          scheduleNote(80, pt, 0.05, 'square', chiptuneGain, 0.08);
+          pt += beatLen;
+          if (pt - now < melodyLen) {
+            scheduleNote(120, pt, 0.03, 'square', chiptuneGain, 0.05);
+          }
+          pt += beatLen;
+        }
+
+        setTimeout(playLoop, melodyLen * 1000 - 200);
+      }
+
+      playLoop();
+    }
+
+    // ============ PIXEL ART SCENE ============
+    function drawScene() {
+      const canvas = document.getElementById('gameScreen');
+      const ctx = canvas.getContext('2d');
+      const W = 160, H = 144;
+
+      const cs = getComputedStyle(document.documentElement);
+      const colors = [
+        cs.getPropertyValue('--gb-screen-dark').trim() || '#0f380f',
+        cs.getPropertyValue('--gb-screen-mid').trim() || '#306230',
+        cs.getPropertyValue('--gb-screen-light').trim() || '#8bac0f',
+        cs.getPropertyValue('--gb-screen-lightest').trim() || '#9bbc0f',
+      ];
+
+      ctx.fillStyle = colors[3];
+      ctx.fillRect(0, 0, W, H);
+
+      // Sky gradient (dithered)
+      for (let y = 0; y < 60; y++) {
+        for (let x = 0; x < W; x++) {
+          const ci = (y < 15) ? 3 : (y < 30 && (x + y) % 3 === 0) ? 2 : (y < 45) ? 2 : ((x + y) % 2 === 0 ? 2 : 3);
+          ctx.fillStyle = colors[ci];
+          ctx.fillRect(x, y, 1, 1);
+        }
+      }
+
+      // Stars
+      const stars = [[12, 5], [40, 8], [78, 3], [110, 12], [145, 6], [30, 20], [95, 15], [130, 22], [55, 10], [148, 18]];
+      ctx.fillStyle = colors[3];
+      for (const [sx, sy] of stars) ctx.fillRect(sx, sy, 1, 1);
+
+      // Distant city skyline
+      ctx.fillStyle = colors[1];
+      const skyline = [
+        [0, 50, 8, 14], [8, 55, 5, 9], [13, 48, 4, 16], [17, 52, 6, 12], [23, 44, 3, 20],
+        [26, 50, 7, 14], [33, 46, 4, 18], [37, 54, 5, 10], [42, 42, 3, 22], [45, 50, 8, 14],
+        [53, 48, 4, 16], [57, 52, 6, 12], [63, 44, 5, 20], [68, 50, 7, 14], [75, 46, 3, 18],
+        [78, 52, 5, 12], [83, 40, 4, 24], [87, 48, 6, 16], [93, 50, 8, 14], [101, 45, 3, 19],
+        [104, 50, 6, 14], [110, 43, 4, 21], [114, 48, 5, 16], [119, 52, 7, 12], [126, 46, 4, 18],
+        [130, 50, 6, 14], [136, 44, 3, 20], [139, 50, 8, 14], [147, 48, 5, 16], [152, 52, 8, 12],
+      ];
+      for (const [bx, by, bw, bh] of skyline) ctx.fillRect(bx, by, bw, bh);
+
+      // Windows on buildings
+      ctx.fillStyle = colors[2];
+      for (const [bx, by, bw, bh] of skyline) {
+        if (bw >= 4 && bh >= 10) {
+          for (let wy = by + 2; wy < by + bh - 2; wy += 4) {
+            for (let wx = bx + 1; wx < bx + bw - 1; wx += 3) {
+              if (Math.random() > 0.3) ctx.fillRect(wx, wy, 1, 2);
+            }
+          }
+        }
+      }
+
+      // Ground
+      ctx.fillStyle = colors[0];
+      ctx.fillRect(0, 64, W, 80);
+
+      // Road / debris texture
+      ctx.fillStyle = colors[1];
+      for (let x = 0; x < W; x += 2) {
+        const gy = 64 + Math.floor(Math.random() * 3);
+        ctx.fillRect(x, gy, 1, 1);
+      }
+
+      // Road lines
+      ctx.fillStyle = colors[1];
+      for (let x = 10; x < W; x += 20) ctx.fillRect(x, 90, 8, 2);
+
+      // Rubble / debris
+      ctx.fillStyle = colors[1];
+      const rubble = [[10, 75, 6, 3], [30, 72, 4, 2], [60, 78, 5, 3], [100, 74, 7, 2], [130, 76, 4, 3], [20, 82, 3, 2], [80, 80, 5, 2], [145, 73, 4, 3]];
+      for (const [rx, ry, rw, rh] of rubble) ctx.fillRect(rx, ry, rw, rh);
+
+      // Fires / explosions (bright spots)
+      ctx.fillStyle = colors[3];
+      const fires = [[25, 46, 3, 4], [90, 42, 2, 3], [120, 44, 3, 5], [50, 49, 2, 3]];
+      for (const [fx, fy, fw, fh] of fires) ctx.fillRect(fx, fy, fw, fh);
+
+      // === ROBOT FIGURE (center-right) ===
+      const rx = 100, ry = 66;
+      ctx.fillStyle = colors[1];
+      // Torso
+      ctx.fillRect(rx, ry, 14, 20);
+      // Head
+      ctx.fillRect(rx + 3, ry - 10, 8, 10);
+      // Eye (glowing)
+      ctx.fillStyle = colors[3];
+      ctx.fillRect(rx + 5, ry - 7, 4, 2);
+      // Jaw
+      ctx.fillStyle = colors[0];
+      ctx.fillRect(rx + 4, ry - 4, 6, 3);
+      ctx.fillStyle = colors[1];
+      ctx.fillRect(rx + 5, ry - 3, 4, 1);
+      // Arms
+      ctx.fillStyle = colors[1];
+      ctx.fillRect(rx - 4, ry + 2, 4, 14);
+      ctx.fillRect(rx + 14, ry + 2, 4, 14);
+      // Gun in right hand
+      ctx.fillStyle = colors[0];
+      ctx.fillRect(rx + 18, ry + 6, 8, 3);
+      ctx.fillRect(rx + 24, ry + 5, 3, 5);
+      // Muzzle flash
+      ctx.fillStyle = colors[3];
+      ctx.fillRect(rx + 27, ry + 4, 4, 2);
+      ctx.fillRect(rx + 27, ry + 8, 3, 1);
+      ctx.fillRect(rx + 30, ry + 6, 2, 1);
+      // Legs
+      ctx.fillStyle = colors[1];
+      ctx.fillRect(rx + 1, ry + 20, 5, 14);
+      ctx.fillRect(rx + 8, ry + 20, 5, 14);
+      // Feet
+      ctx.fillStyle = colors[0];
+      ctx.fillRect(rx - 1, ry + 32, 7, 3);
+      ctx.fillRect(rx + 7, ry + 32, 7, 3);
+      // Rib cage detail
+      ctx.fillStyle = colors[0];
+      for (let i = 0; i < 4; i++) ctx.fillRect(rx + 2, ry + 3 + i * 4, 10, 1);
+      // Shoulder pads
+      ctx.fillStyle = colors[0];
+      ctx.fillRect(rx - 2, ry, 3, 4);
+      ctx.fillRect(rx + 13, ry, 3, 4);
+
+      // === HUMAN FIGURE (left side, running) ===
+      const hx = 30, hy = 85;
+      ctx.fillStyle = colors[2];
+      // Head
+      ctx.fillRect(hx + 2, hy - 8, 5, 5);
+      // Body
+      ctx.fillRect(hx + 1, hy - 3, 6, 10);
+      // Arms (running pose)
+      ctx.fillRect(hx - 2, hy - 2, 3, 2);
+      ctx.fillRect(hx + 7, hy + 1, 3, 2);
+      // Legs (running)
+      ctx.fillRect(hx, hy + 7, 3, 8);
+      ctx.fillRect(hx + 5, hy + 7, 3, 6);
+      ctx.fillRect(hx + 5, hy + 11, 3, 4);
+
+      // Bullet trails
+      ctx.fillStyle = colors[2];
+      for (let i = 0; i < 5; i++) {
+        const bx2 = rx + 30 + i * 6;
+        const by2 = ry + 6 + Math.round(Math.sin(i) * 2);
+        ctx.fillRect(bx2, by2, 3, 1);
+      }
+
+      // Skulls / debris on ground
+      ctx.fillStyle = colors[2];
+      ctx.fillRect(65, 96, 4, 3);
+      ctx.fillRect(66, 93, 2, 3);
+      ctx.fillRect(140, 100, 3, 2);
+
+      // === HUD Elements ===
+      ctx.fillStyle = colors[3];
+      ctx.font = '5px monospace';
+      // Top bar
+      ctx.fillRect(2, 2, 36, 8);
+      ctx.fillStyle = colors[0];
+      ctx.fillText('HP ████', 3, 8);
+      ctx.fillStyle = colors[3];
+      ctx.fillRect(W - 40, 2, 38, 8);
+      ctx.fillStyle = colors[0];
+      ctx.fillText('AMMO 099', W - 39, 8);
+
+      // Score
+      ctx.fillStyle = colors[2];
+      ctx.font = '5px monospace';
+      ctx.fillText('SCORE 024700', 50, 8);
+
+      // Title at bottom
+      ctx.fillStyle = colors[2];
+      ctx.font = '5px monospace';
+      ctx.fillText('STAGE 03 - WASTELAND', 20, 140);
+    }
+
+    window.redrawScene = drawScene;
+
+    // ============ BUTTON INTERACTIONS ============
+    function setupButtons() {
+      document.querySelectorAll('[data-btn]').forEach(btn => {
+        btn.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          playClick();
+        });
+        btn.addEventListener('touchstart', (e) => {
+          e.preventDefault();
+          playClick();
+          btn.style.filter = 'brightness(1.3)';
+        });
+        btn.addEventListener('touchend', () => {
+          btn.style.filter = '';
+        });
+      });
+    }
+
+    // ============ BOOT SEQUENCE ============
+    function powerOn() {
+      const overlay = document.getElementById('powerOverlay');
+      overlay.classList.add('off');
+
+      document.getElementById('powerLed').classList.add('on');
+      initHowlerClick();
+
+      const bootLogo = document.getElementById('bootLogo');
+      bootLogo.textContent = '●';
+      bootLogo.style.fontSize = '20px';
+
+      setTimeout(() => {
+        // Play boot sound
+        if (audioCtx) return;
+        const tmpCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = tmpCtx.createOscillator();
+        const g = tmpCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(783.99, tmpCtx.currentTime);
+        osc.frequency.setValueAtTime(587.33, tmpCtx.currentTime + 0.08);
+        g.gain.setValueAtTime(0.1, tmpCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, tmpCtx.currentTime + 0.3);
+        osc.connect(g);
+        g.connect(tmpCtx.destination);
+        osc.start();
+        osc.stop(tmpCtx.currentTime + 0.3);
+      }, 200);
+
+      setTimeout(() => {
+        const boot = document.getElementById('bootScreen');
+        boot.classList.add('hide');
+        drawScene();
+        setupButtons();
+        startChiptune();
+      }, 1800);
+    }
+  </script>
+</body>
+
+</html>
