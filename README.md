@@ -16,20 +16,12 @@ Also, please add a small control widget on the side of the page that lets a user
 
 ## Versiones de GameBoy
 
-| Miniatura | Modelo utilizado | Código fuente |
-|-|-|-|
-| ![](chatgpt-5.3/thumb.png) | [Versión de ChatGPT 5.3](https://manzdev.github.io/gameboy-css-ai/chatgpt-5.3/index.html) | [Código fuente](chatgpt-5.3/index.html) |
-| ![](claude-sonnet-4.6/thumb.png) | [Versión de Claude Sonnet 4.6](https://manzdev.github.io/gameboy-css-ai/claude-sonnet-4.6/index.html) | [Código fuente](claude-sonnet-4.6/index.html) |
-| ![](gemini/thumb.png) | [Versión de Google Gemini](https://manzdev.github.io/gameboy-css-ai/gemini/index.html) | [Código fuente](gemini/index.html) |
-| ![](claude-haiku-4.5/thumb.png) | [Versión de Claude Haiku 4.5](https://manzdev.github.io/gameboy-css-ai/claude-haiku-4.5/index.html) | [Código fuente](claude-haiku-4.5/index.html) |
-| ![](kimi-k2.5/thumb.png) | [Versión de Kimi k2.5](https://manzdev.github.io/gameboy-css-ai/kimi-k2.5/index.html) | [Código fuente](kimi-k2.5/index.html) |
-| ![](claude-opus-4.6/thumb.png) | [Versión de Claude Opus 4.6](https://manzdev.github.io/gameboy-css-ai/claude-opus-4.6/index.html) | [Código fuente](claude-opus-4.6/index.html) |
-| ![](minimax-agent/thumb.png) | [Versión de MiniMax](https://manzdev.github.io/gameboy-css-ai/minimax-agent/index.html) | [Código fuente](minimax-agent/index.html) |
-| ![](qwen-3.6-plus/thumb.png) | [Versión de Qwen 3.6 plus](https://manzdev.github.io/gameboy-css-ai/qwen-3.6-plus/index.html) | [Código fuente](qwen-3.6-plus/index.html) |
-| ![](glm-5-turbo/thumb.png) | [Versión de Z.ai GLM 5 Turbo](https://manzdev.github.io/gameboy-css-ai/glm-5-turbo/index.html) | [Código fuente](glm-5-turbo/index.html) |
-| ![](grok/thumb.png) | [Versión de Grok](https://manzdev.github.io/gameboy-css-ai/grok/index.html) | [Código fuente](grok/index.html) |
-| ![](manzdev-original-thumb.png) | [Original de ManzDev —No AI—](https://manzdev.github.io/gameboycss/) | [Código fuente](https://github.com/manzdev/gameboycss) |
-| ![](manzdev-new-thumb.png) | [Versión mejorada de ManzDev —No AI—](https://manzdev.github.io/twitch-gameboy-css/) | [Código fuente](https://github.com/manzdev/twitch-gameboy-css) |
+| | | |
+|:-:|:-:|:-:|
+| ![](chatgpt-5.3/thumb.png)<br>[Versión de ChatGPT 5.3](https://manzdev.github.io/gameboy-css-ai/chatgpt-5.3/index.html)<br>[Código fuente](chatgpt-5.3/index.html) | ![](gemini/thumb.png)<br>[Versión de Google Gemini](https://manzdev.github.io/gameboy-css-ai/gemini/index.html)<br>[Código fuente](gemini/index.html) | ![](kimi-k2.5/thumb.png)<br>[Versión de Kimi k2.5](https://manzdev.github.io/gameboy-css-ai/kimi-k2.5/index.html)<br>[Código fuente](kimi-k2.5/index.html) |
+| ![](claude-haiku-4.5/thumb.png)<br>[Versión de Claude Haiku 4.5](https://manzdev.github.io/gameboy-css-ai/claude-haiku-4.5/index.html)<br>[Código fuente](claude-haiku-4.5/index.html) | ![](claude-sonnet-4.6/thumb.png)<br>[Versión de Claude Sonnet 4.6](https://manzdev.github.io/gameboy-css-ai/claude-sonnet-4.6/index.html)<br>[Código fuente](claude-sonnet-4.6/index.html) | ![](claude-opus-4.6/thumb.png)<br>[Versión de Claude Opus 4.6](https://manzdev.github.io/gameboy-css-ai/claude-opus-4.6/index.html)<br>[Código fuente](claude-opus-4.6/index.html) |
+| ![](minimax-agent/thumb.png)<br>[Versión de MiniMax](https://manzdev.github.io/gameboy-css-ai/minimax-agent/index.html)<br>[Código fuente](minimax-agent/index.html) | ![](qwen-3.6-plus/thumb.png)<br>[Versión de Qwen 3.6 plus](https://manzdev.github.io/gameboy-css-ai/qwen-3.6-plus/index.html)<br>[Código fuente](qwen-3.6-plus/index.html) | ![](glm-5-turbo/thumb.png)<br>[Versión de Z.ai GLM 5 Turbo](https://manzdev.github.io/gameboy-css-ai/glm-5-turbo/index.html)<br>[Código fuente](glm-5-turbo/index.html) |
+| ![](grok/thumb.png)<br>[Versión de Grok](https://manzdev.github.io/gameboy-css-ai/grok/index.html)<br>[Código fuente](grok/index.html) | ![](manzdev-original-thumb.png)<br>[Original de ManzDev (No AI)](https://manzdev.github.io/gameboycss/)<br>[Código fuente](https://github.com/manzdev/gameboycss) | ![](manzdev-new-thumb.png)<br>[Mejora de ManzDev (No AI)](https://manzdev.github.io/twitch-gameboy-css/)<br>[Código fuente](https://github.com/manzdev/twitch-gameboy-css) |
 
 ## Créditos
 
